@@ -6,12 +6,11 @@
 <title>Sigma Signals — Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-:root{--bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;--border:rgba(255,255,255,0.08);--text:#e8eaf6;--text2:#8b8fa8;--text3:#5a5e75;--green:#4ade80;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;--teal:#34d399;--radius:10px}
+:root{--bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;--border:rgba(255,255,255,0.08);--text:#e8eaf6;--text2:#8b8fa8;--text3:#5a5e75;--green:#4ade80;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--teal:#34d399;--radius:10px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,sans-serif;font-size:14px;min-height:100vh}
 header{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.logo{display:flex;align-items:center;gap:10px}
-.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo{display:flex;align-items:center;gap:10px}.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
 .logo h1{font-size:17px;font-weight:600}.logo p{font-size:12px;color:var(--text2);margin-top:1px}
 .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500}
@@ -43,8 +42,7 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle}
 .symbol{font-weight:600}.score-wrap{display:flex;align-items:center;gap:6px}
 .score-bar-bg{width:44px;height:5px;border-radius:3px;background:var(--bg3)}.score-bar-fill{height:5px;border-radius:3px}
 .decision{font-weight:600;font-size:13px}
-.outcome-tp{color:var(--green);font-weight:600}.outcome-sl{color:var(--red);font-weight:600}
-.outcome-pos{color:var(--teal)}.outcome-neg{color:var(--red)}.outcome-pend{color:var(--text3)}
+.outcome-tp{color:var(--green);font-weight:600}.outcome-sl{color:var(--red);font-weight:600}.outcome-pend{color:var(--text3)}
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px}
 @media(max-width:640px){.charts-grid{grid-template-columns:1fr}}
 .chart-wrap{background:var(--bg3);border-radius:8px;padding:14px}
@@ -54,50 +52,49 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle}
 .sim-card label{font-size:11px;color:var(--text2);display:block;margin-bottom:4px}
 .sim-card .val{font-size:22px;font-weight:700}
 .empty-state{padding:40px;text-align:center;color:var(--text3);font-size:13px}
-.refresh-btn{background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);color:var(--blue);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;transition:background .15s}
-.refresh-btn:hover{background:rgba(96,165,250,.2)}
+.refresh-btn{background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);color:var(--blue);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer}
 .sheet-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:12px;width:260px;max-width:100%}
-.sheet-input:focus{outline:none;border-color:var(--blue)}
 .config-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg)}
 .config-row label{font-size:12px;color:var(--text2)}
 footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
+.sok{color:var(--green)}.serr{color:var(--red)}
 </style></head><body>
 <header>
   <div class="logo"><div class="logo-icon">Σ</div><div><h1>Sigma Signals</h1><p>Decision dashboard · Solana</p></div></div>
   <div class="header-right">
-    <span class="badge badge-d1"><span class="dot" style="background:#a78bfa"></span>D1 5min</span>
-    <span class="badge badge-c1"><span class="dot" style="background:#34d399"></span>C1 15min</span>
-    <span class="badge badge-02"><span class="dot" style="background:#60a5fa"></span>02 2h</span>
+    <span class="badge badge-d1"><span class="dot" style="background:#a78bfa"></span>D1</span>
+    <span class="badge badge-c1"><span class="dot" style="background:#34d399"></span>C1</span>
+    <span class="badge badge-02"><span class="dot" style="background:#60a5fa"></span>02</span>
     <span class="dot dot-green"></span><span id="last-update">chargement...</span>
-    <button class="refresh-btn" onclick="loadData()">↻ Actualiser</button>
+    <button class="refresh-btn" onclick="loadData()">↻</button>
   </div>
 </header>
 <main>
-  <div class="config-row"><label>Google Sheet ID :</label><input class="sheet-input" id="sheet-id" type="text" value="1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk"><button class="refresh-btn" onclick="loadData()">Charger</button><span id="sheet-status" style="font-size:11px;color:var(--text3)"></span></div>
+  <div class="config-row"><label>Sheet ID:</label><input class="sheet-input" id="sheet-id" value="1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk"><button class="refresh-btn" onclick="loadData()">OK</button><span id="ss"></span></div>
   <div class="grid-4">
     <div class="metric-card"><label>Signaux</label><div class="val val-muted" id="m-total">—</div></div>
     <div class="metric-card"><label>Top picks</label><div class="val val-green" id="m-picks">—</div></div>
-    <div class="metric-card"><label>TP1 atteints</label><div class="val val-muted" id="m-tp1">—</div><div class="sub" id="m-tp1-sub">en attente G1</div></div>
-    <div class="metric-card"><label>PnL simulé</label><div class="val val-muted" id="m-pnl">—</div><div class="sub">en attente G1</div></div>
+    <div class="metric-card"><label>TP1</label><div class="val val-muted" id="m-tp1">—</div><div class="sub" id="m-tp1-sub">en attente G1</div></div>
+    <div class="metric-card"><label>PnL</label><div class="val val-muted" id="m-pnl">—</div><div class="sub">en attente G1</div></div>
   </div>
   <div class="section">
-    <div class="section-header"><div><div class="section-title">Moteur de scoring</div><div class="section-sub">Ajuste les poids · seuil = score minimum pour entrer</div></div></div>
+    <div class="section-header"><div><div class="section-title">Scoring</div><div class="section-sub">Ajuste les poids · seuil = score minimum pour entrer</div></div></div>
     <div class="controls">
-      <div class="ctrl-group"><label>Note Claude (0–40 pts)</label><div class="ctrl-row"><input type="range" id="w-note" min="0" max="40" value="30"><span class="ctrl-val" id="w-note-v">30</span></div></div>
-      <div class="ctrl-group"><label>BuyRatio (0–25 pts)</label><div class="ctrl-row"><input type="range" id="w-buy" min="0" max="25" value="20"><span class="ctrl-val" id="w-buy-v">20</span></div></div>
-      <div class="ctrl-group"><label>Vol/Liq (0–20 pts)</label><div class="ctrl-row"><input type="range" id="w-vol" min="0" max="20" value="15"><span class="ctrl-val" id="w-vol-v">15</span></div></div>
-      <div class="ctrl-group"><label>Âge optimal 30-90min (0–15 pts)</label><div class="ctrl-row"><input type="range" id="w-age" min="0" max="15" value="10"><span class="ctrl-val" id="w-age-v">10</span></div></div>
+      <div class="ctrl-group"><label>Note Claude (0-40)</label><div class="ctrl-row"><input type="range" id="w-note" min="0" max="40" value="30"><span class="ctrl-val" id="w-note-v">30</span></div></div>
+      <div class="ctrl-group"><label>BuyRatio (0-25)</label><div class="ctrl-row"><input type="range" id="w-buy" min="0" max="25" value="20"><span class="ctrl-val" id="w-buy-v">20</span></div></div>
+      <div class="ctrl-group"><label>Vol/Liq (0-20)</label><div class="ctrl-row"><input type="range" id="w-vol" min="0" max="20" value="15"><span class="ctrl-val" id="w-vol-v">15</span></div></div>
+      <div class="ctrl-group"><label>Age 30-90min (0-15)</label><div class="ctrl-row"><input type="range" id="w-age" min="0" max="15" value="10"><span class="ctrl-val" id="w-age-v">10</span></div></div>
     </div>
     <div class="threshold-row">
-      <span>Seuil :</span><input type="range" id="threshold" min="30" max="85" value="60" step="5" style="width:120px"><strong id="threshold-v">60/100</strong>
-      <span style="margin-left:12px">Base :</span><input type="range" id="stake-base" min="10" max="100" value="30" step="5" style="width:90px"><strong id="stake-base-v" style="color:var(--teal)">30 CHF</strong>
-      <span style="margin-left:12px">Fort (seuil+15) :</span><input type="range" id="stake-high" min="10" max="150" value="60" step="5" style="width:90px"><strong id="stake-high-v" style="color:var(--green)">60 CHF</strong>
+      <span>Seuil:</span><input type="range" id="threshold" min="30" max="85" value="60" step="5" style="width:110px"><strong id="threshold-v">60/100</strong>
+      <span>Base:</span><input type="range" id="stake-base" min="10" max="100" value="30" step="5" style="width:90px"><strong id="stake-base-v" style="color:var(--teal)">30 CHF</strong>
+      <span>Fort:</span><input type="range" id="stake-high" min="10" max="150" value="60" step="5" style="width:90px"><strong id="stake-high-v" style="color:var(--green)">60 CHF</strong>
     </div>
   </div>
   <div class="section">
     <div class="section-header"><div class="section-title">Signaux récents</div><div id="sig-count" class="section-sub">—</div></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Token</th><th>Source</th><th>Note</th><th>Âge</th><th>BuyRatio</th><th>Vol/Liq</th><th>Score/100</th><th>Décision</th><th>Outcome</th><th>Dex</th></tr></thead>
+      <thead><tr><th>Token</th><th>Source</th><th>Note</th><th>Age</th><th>BuyRatio</th><th>Vol/Liq</th><th>Score</th><th>Décision</th><th>Outcome</th><th>Dex</th></tr></thead>
       <tbody id="signals-tbody"><tr><td colspan="10" class="empty-state">Chargement...</td></tr></tbody>
     </table></div>
   </div>
@@ -107,72 +104,107 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
       <div class="sim-card"><label>Entrées</label><div class="val val-muted" id="sim-entries">—</div></div>
       <div class="sim-card"><label>Capital</label><div class="val val-muted" id="sim-capital">— CHF</div></div>
       <div class="sim-card"><label>PnL</label><div class="val val-muted" id="sim-pnl">—</div><div style="font-size:11px;color:var(--text3);margin-top:3px">avec G1</div></div>
-      <div class="sim-card"><label>Taux succès</label><div class="val val-muted" id="sim-rate">—</div><div style="font-size:11px;color:var(--text3);margin-top:3px">avec G1</div></div>
+      <div class="sim-card"><label>Taux</label><div class="val val-muted" id="sim-rate">—</div></div>
     </div>
   </div>
   <div class="section">
     <div class="section-header"><div class="section-title">Répartition</div></div>
     <div class="charts-grid">
-      <div class="chart-wrap"><div class="chart-label">Distribution notes Claude</div><div style="position:relative;height:180px"><canvas id="chart-notes"></canvas></div></div>
-      <div class="chart-wrap"><div class="chart-label">Signaux par source</div><div style="position:relative;height:180px"><canvas id="chart-sources"></canvas></div></div>
+      <div class="chart-wrap"><div class="chart-label">Notes Claude</div><div style="position:relative;height:180px"><canvas id="chart-notes"></canvas></div></div>
+      <div class="chart-wrap"><div class="chart-label">Sources</div><div style="position:relative;height:180px"><canvas id="chart-sources"></canvas></div></div>
     </div>
   </div>
 </main>
-<footer>Sigma Signals Dashboard · données Google Sheets · refresh 5min</footer>
+<footer>Sigma Signals Dashboard · Google Sheets · refresh 5min</footer>
 <script>
-const SHEET_ID='1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
-let allSignals=[],charts={};
-async function loadData(){
-  const id=document.getElementById('sheet-id').value.trim()||SHEET_ID;
-  const st=document.getElementById('sheet-status');
+var SHEET_ID='1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
+var allSignals=[];var charts={};
+function loadData(){
+  var id=document.getElementById('sheet-id').value.trim()||SHEET_ID;
+  var st=document.getElementById('ss');
   st.textContent='chargement...';st.style.color='var(--text3)';
-  try{
-    const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&sheet=Sheet1`);
-    const t=await r.text();const j=JSON.parse(t.substring(47).slice(0,-2));
-    const cols=j.table.cols.map(c=>c.label.toLowerCase().replace(/s/g,'_'));
-    allSignals=j.table.rows.map(r=>{const o={};cols.forEach((c,i)=>{o[c]=r.c[i]?r.c[i].v:null});return o}).filter(r=>r.symbol||r.address);
+  var url='https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json';
+  fetch(url).then(function(r){return r.text();}).then(function(t){
+    var j=JSON.parse(t.slice(47,-2));
+    var rows=j.table.rows;
+    var cols=j.table.cols.map(function(c){return c.label.toLowerCase().replace(/s/g,'_');});
+    allSignals=[];
+    for(var i=0;i<rows.length;i++){
+      var obj={};
+      for(var k=0;k<cols.length;k++){obj[cols[k]]=rows[i].c[k]?rows[i].c[k].v:null;}
+      if(obj.symbol&&String(obj.symbol).trim()!==''){allSignals.push(obj);}
+    }
     st.textContent=allSignals.length+' signaux';st.style.color='var(--green)';
-    document.getElementById('last-update').textContent='actualisé '+new Date().toLocaleTimeString('fr-CH');renderAll();
-  }catch(e){st.textContent='Erreur — sheet public requis';st.style.color='var(--red)';demoData();}
+    document.getElementById('last-update').textContent=new Date().toLocaleTimeString('fr-CH');
+    renderAll();
+  }).catch(function(e){st.textContent='Erreur: '+e.message;st.style.color='var(--red)';});
 }
-function demoData(){
-  allSignals=[{symbol:'BRUCE',source:'D1',note_claude:5,age_minutes:6,buy_ratio:58,vol_liq:1.95,outcome:null,dex_url:'https://dexscreener.com/solana/'},{symbol:'SAOS',source:'02',note_claude:7,age_minutes:480,buy_ratio:71,vol_liq:0.8,outcome:null,dex_url:''},{symbol:'BULL',source:'02',note_claude:6,age_minutes:1200,buy_ratio:62,vol_liq:0.6,outcome:null,dex_url:''},{symbol:'CLUTCH',source:'C1',note_claude:7,age_minutes:45,buy_ratio:68,vol_liq:2.1,outcome:null,dex_url:''},{symbol:'WENGU',source:'C1',note_claude:9,age_minutes:22,buy_ratio:75,vol_liq:4.2,outcome:null,dex_url:''}];renderAll();
+function sc(s){
+  var wn=+document.getElementById('w-note').value,wb=+document.getElementById('w-buy').value,wv=+document.getElementById('w-vol').value,wa=+document.getElementById('w-age').value;
+  var n=parseFloat(s.note_claude)||0,b=parseFloat(s.buy_ratio||s.buyratio)||50,v=parseFloat(s.vol_liq||s.volliq)||1,a=parseFloat(s.age_minutes||s.ageminutes)||60;
+  var aOk=a>=30&&a<=90;
+  return Math.round((n/10)*wn+Math.min(b/100,1)*wb+Math.min(v/3,1)*wv+(aOk?wa:(a<30?wa*.2:wa*.6)));
 }
-function getScore(s){const wn=+document.getElementById('w-note').value,wb=+document.getElementById('w-buy').value,wv=+document.getElementById('w-vol').value,wa=+document.getElementById('w-age').value;const n=parseFloat(s.note_claude||0),b=parseFloat(s.buy_ratio||s.buyratio||50),v=parseFloat(s.vol_liq||s.volliq||1),a=parseFloat(s.age_minutes||s.ageminutes||60);const aOk=a>=30&&a<=90;return Math.round((n/10)*wn+Math.min(b/100,1)*wb+Math.min(v/3,1)*wv+(aOk?wa:(a<30?wa*.2:wa*.6)));}
-function getDec(sc){const th=+document.getElementById('threshold').value,sb=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;if(sc>=th+15)return{label:sh+' CHF',color:'#4ade80'};if(sc>=th)return{label:sb+' CHF',color:'#fbbf24'};return{label:'Passer',color:'#5a5e75'};}
-function srcBadge(s){const m={D1:'badge-d1',C1:'badge-c1','02':'badge-02'};return '<span class="badge '+(m[s]||'badge-pending')+'">'+(s||'—')+'</span>';}
-function outBadge(o){if(!o)return'<span class="outcome-pend">attente</span>';if(o==='TP1'||o==='TP2')return'<span class="outcome-tp">'+o+'</span>';if(o==='SL')return'<span class="outcome-sl">SL</span>';return'<span class="outcome-pend">'+o+'</span>';}
-function fmtAge(m){if(!m)return'—';m=parseFloat(m);return m<60?Math.round(m)+'min':Math.round(m/60)+'h';}
+function dc(score){
+  var th=+document.getElementById('threshold').value,sb=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
+  if(score>=th+15)return{l:sh+' CHF',c:'#4ade80'};
+  if(score>=th)return{l:sb+' CHF',c:'#fbbf24'};
+  return{l:'Passer',c:'#5a5e75'};
+}
+function sb(s){var m={D1:'badge-d1',C1:'badge-c1','02':'badge-02'};return'<span class="badge '+(m[s]||'badge-02')+'">'+(s||'02')+'</span>';}
+function ob(o){if(!o)return'<span class="outcome-pend">attente</span>';if(o==='TP1'||o==='TP2')return'<span class="outcome-tp">'+o+'</span>';if(o==='SL')return'<span class="outcome-sl">SL</span>';return'<span class="outcome-pend">'+o+'</span>';}
+function fa(m){if(!m)return'—';m=parseFloat(m);return m<60?Math.round(m)+'min':Math.round(m/60)+'h';}
 function renderAll(){
-  const th=+document.getElementById('threshold').value,sb=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
-  document.getElementById('threshold-v').textContent=th+'/100';document.getElementById('stake-base-v').textContent=sb+' CHF';document.getElementById('stake-high-v').textContent=sh+' CHF';
-  ['w-note','w-buy','w-vol','w-age'].forEach(id=>document.getElementById(id+'-v').textContent=document.getElementById(id).value);
-  const recent=allSignals.slice(-50).reverse();let entries=0,capital=0,picks=0,nd={},sd={D1:0,C1:0,'02':0};
-  for(let i=1;i<=10;i++)nd[i]=0;let rows='';
-  recent.forEach(s=>{
-    const sc=getScore(s),d=getDec(sc),n=parseFloat(s.note_claude||0),b=parseFloat(s.buy_ratio||s.buyratio||50),v=parseFloat(s.vol_liq||s.volliq||1);
-    const src=(s.source||'02').replace(/workflow ?/i,'').trim();
-    if(d.label!=='Passer'){entries++;capital+=parseInt(d.label);}
+  var th=+document.getElementById('threshold').value,sb2=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
+  document.getElementById('threshold-v').textContent=th+'/100';
+  document.getElementById('stake-base-v').textContent=sb2+' CHF';
+  document.getElementById('stake-high-v').textContent=sh+' CHF';
+  ['w-note','w-buy','w-vol','w-age'].forEach(function(id){document.getElementById(id+'-v').textContent=document.getElementById(id).value;});
+  var recent=allSignals.slice(-50).reverse();
+  var entries=0,capital=0,picks=0;
+  var nd={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0};
+  var sdist={D1:0,C1:0,'02':0};
+  var rows='';
+  for(var i=0;i<recent.length;i++){
+    var s=recent[i];
+    var score=sc(s),d=dc(score);
+    var n=parseFloat(s.note_claude)||0,bv=parseFloat(s.buy_ratio||s.buyratio)||0,vv=parseFloat(s.vol_liq||s.volliq)||0;
+    var src=(s.source||'02').replace(/workflow ?/i,'').trim();
+    if(d.l!=='Passer'){entries++;capital+=parseInt(d.l);}
     if(s.is_top_pick==='OUI'||s.is_top_pick===true)picks++;
-    const nk=Math.round(n);if(nd[nk]!==undefined)nd[nk]++;if(sd[src]!==undefined)sd[src]++;
-    const dex=s.dex_url?'<a href="'+s.dex_url+'" target="_blank" style="color:var(--blue)">↗</a>':'—';
-    rows+='<tr><td class="symbol">'+(s.symbol||'—')+'</td><td>'+srcBadge(src)+'</td><td style="color:'+(n>=7?'#4ade80':n>=5?'#fbbf24':'#f87171')+'">'+n+'/10</td><td style="color:var(--text2)">'+fmtAge(s.age_minutes||s.ageminutes)+'</td><td style="color:'+(b>=60?'#34d399':'var(--text2)')+'">'+( b?b+'%':'—')+'</td><td style="color:'+(v>=1?'#34d399':'var(--text2)')+'">'+( v?parseFloat(v).toFixed(1)+'x':'—')+'</td><td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+Math.min(sc,100)+'%;background:'+d.color+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.color+'">'+sc+'</span></div></td><td class="decision" style="color:'+d.color+'">'+d.label+'</td><td>'+outBadge(s.outcome)+'</td><td>'+dex+'</td></tr>';
-  });
+    var nk=Math.round(n);if(nd[nk]!==undefined)nd[nk]++;
+    if(sdist[src]!==undefined)sdist[src]++;
+    var nc=n>=7?'#4ade80':n>=5?'#fbbf24':'#f87171';
+    var bc=bv>=60?'#34d399':'var(--text2)';
+    var vc=vv>=1?'#34d399':'var(--text2)';
+    var bw=Math.min(score,100);
+    var dex=s.dex_url?'<a href="'+s.dex_url+'" target="_blank" style="color:var(--blue)">↗</a>':'—';
+    rows+='<tr><td class="symbol">'+(s.symbol||'—')+'</td><td>'+sb(src)+'</td>';
+    rows+='<td style="color:'+nc+'">'+n+'/10</td>';
+    rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes)+'</td>';
+    rows+='<td style="color:'+bc+'">'+(bv?bv+'%':'—')+'</td>';
+    rows+='<td style="color:'+vc+'">'+(vv?parseFloat(vv).toFixed(1)+'x':'—')+'</td>';
+    rows+='<td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+bw+'%;background:'+d.c+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.c+'">'+score+'</span></div></td>';
+    rows+='<td class="decision" style="color:'+d.c+'">'+d.l+'</td>';
+    rows+='<td>'+ob(s.outcome)+'</td><td>'+dex+'</td></tr>';
+  }
   document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="10" class="empty-state">Aucun signal</td></tr>';
   document.getElementById('sig-count').textContent=recent.length+' signaux';
-  document.getElementById('m-total').textContent=allSignals.length;document.getElementById('m-picks').textContent=picks;
-  document.getElementById('sim-entries').textContent=entries;document.getElementById('sim-capital').textContent=capital+' CHF';
-  const tp1=allSignals.filter(s=>s.outcome==='TP1'||s.outcome==='TP2').length;
-  const checked=allSignals.filter(s=>s.outcome&&s.outcome!=='PENDING').length;
-  if(checked>0){const rate=Math.round(tp1/checked*100);document.getElementById('m-tp1').textContent=tp1;document.getElementById('m-tp1-sub').textContent=rate+'% taux';}
-  renderCharts(nd,sd);
+  document.getElementById('m-total').textContent=allSignals.length;
+  document.getElementById('m-picks').textContent=picks;
+  document.getElementById('sim-entries').textContent=entries;
+  document.getElementById('sim-capital').textContent=capital+' CHF';
+  var tp1=allSignals.filter(function(s){return s.outcome==='TP1'||s.outcome==='TP2';}).length;
+  var chk=allSignals.filter(function(s){return s.outcome&&s.outcome!=='PENDING';}).length;
+  if(chk>0){var rate=Math.round(tp1/chk*100);document.getElementById('m-tp1').textContent=tp1;document.getElementById('m-tp1-sub').textContent=rate+'% taux';}
+  rCharts(nd,sdist);
 }
-function renderCharts(nd,sd){
+function rCharts(nd,sd){
   if(charts.n)charts.n.destroy();if(charts.s)charts.s.destroy();
-  const nl=Object.keys(nd),nv=Object.values(nd),nc=nl.map(n=>+n>=7?'#4ade80':+n>=5?'#fbbf24':'#f87171');
-  charts.n=new Chart(document.getElementById('chart-notes'),{type:'bar',data:{labels:nl.map(n=>n+'/10'),datasets:[{data:nv,backgroundColor:nc,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b8fa8',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b8fa8',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}});
-  charts.s=new Chart(document.getElementById('chart-sources'),{type:'doughnut',data:{labels:['D1 Early','C1 Pump','02 Trend'],datasets:[{data:[sd.D1||0,sd.C1||0,sd['02']||0],backgroundColor:['#a78bfa','#34d399','#60a5fa'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{color:'#8b8fa8',font:{size:11},boxWidth:10,padding:8}}},cutout:'65%'}});
+  var nl=Object.keys(nd),nv=Object.values(nd),nc2=nl.map(function(n){return +n>=7?'#4ade80':+n>=5?'#fbbf24':'#f87171';});
+  charts.n=new Chart(document.getElementById('chart-notes'),{type:'bar',data:{labels:nl.map(function(n){return n+'/10';}),datasets:[{data:nv,backgroundColor:nc2,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b8fa8',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b8fa8',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}});
+  charts.s=new Chart(document.getElementById('chart-sources'),{type:'doughnut',data:{labels:['D1','C1','02'],datasets:[{data:[sd.D1||0,sd.C1||0,sd['02']||0],backgroundColor:['#a78bfa','#34d399','#60a5fa'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{color:'#8b8fa8',font:{size:11},boxWidth:10,padding:8}}},cutout:'65%'}});
 }
-['w-note','w-buy','w-vol','w-age','threshold','stake-base','stake-high'].forEach(id=>document.getElementById(id).addEventListener('input',renderAll));
+['w-note','w-buy','w-vol','w-age','threshold','stake-base','stake-high'].forEach(function(id){document.getElementById(id).addEventListener('input',renderAll);});
 loadData();setInterval(loadData,300000);
 </script></body></html>
