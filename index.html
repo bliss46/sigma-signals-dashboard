@@ -44,7 +44,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .threshold-row span{font-size:12px;color:var(--text2)}
 .threshold-row strong{color:var(--amber)}
 table{width:100%;border-collapse:collapse}
-thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}thead th:hover{color:var(--text)}thead th.sort-asc::after{content:" ↑"}thead th.sort-desc::after{content:" ↓"}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg3)}
@@ -109,7 +109,7 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
   <div class="section">
     <div class="section-header"><div class="section-title">Signaux récents</div><div id="sig-count" class="section-sub">—</div></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Token</th><th>Source</th><th>Note</th><th>Détecté</th><th>Âge</th><th>BuyRatio</th><th>Vol/Liq</th><th>Score</th><th>Décision</th><th>Outcome</th><th>Dex</th></tr></thead>
+      <thead><tr><th onclick="sortBy('symbol',this)">Token</th><th onclick="sortBy('source',this)">Source</th><th onclick="sortBy('note_claude',this)">Note</th><th onclick="sortBy('timestamp',this)">Détecté</th><th onclick="sortBy('age_minutes',this)">Âge</th><th onclick="sortBy('buy_ratio',this)">BuyRatio</th><th onclick="sortBy('vol_liq',this)">Vol/Liq</th><th onclick="sortBy('_score',this)">Score</th><th onclick="sortBy('_decision',this)">Décision</th><th onclick="sortBy('outcome',this)">Outcome</th><th>Dex</th></tr></thead>
       <tbody id="signals-tbody"><tr><td colspan="11" class="empty-state">Chargement...</td></tr></tbody>
     </table></div>
   </div>
@@ -133,9 +133,9 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
 <footer>Sigma Signals Dashboard · Google Sheets · refresh 5min</footer>
 <script>
 var SHEET_ID='1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
-var allSignals=[];var charts={};
+var allSignals=[];var charts={};var sortCol=null;var sortDir=1;var _sortTh=null;
 function dbg(msg){var d=document.getElementById('debug-box');if(d)d.innerHTML='<div class="debug">'+msg+'</div>';}
-function loadData(){
+function sortBy(col,th){if(sortCol===col){sortDir*=-1;}else{sortCol=col;sortDir=1;}if(_sortTh){_sortTh.classList.remove('sort-asc','sort-desc');}_sortTh=th;th.classList.add(sortDir===1?'sort-asc':'sort-desc');renderAll();}function loadData(){
   var id=document.getElementById('sheet-id').value.trim()||SHEET_ID;
   var st=document.getElementById('ss');
   st.textContent='chargement...';st.style.color='var(--text3)';
@@ -186,7 +186,7 @@ function renderAll(){
   document.getElementById('stake-base-v').textContent=sb2+' CHF';
   document.getElementById('stake-high-v').textContent=sh+' CHF';
   ['w-note','w-buy','w-vol','w-age'].forEach(function(id){document.getElementById(id+'-v').textContent=document.getElementById(id).value;});
-  var recent=allSignals.slice(-50).reverse();
+  var recent=allSignals.slice(-50).reverse();if(sortCol){recent=recent.slice().sort(function(a,b){var av,bv;if(sortCol==='_score'){av=sc(a);bv=sc(b);}else if(sortCol==='_decision'){av=sc(a)>=+document.getElementById('threshold').value?1:0;bv=sc(b)>=+document.getElementById('threshold').value?1:0;}else{av=a[sortCol];bv=b[sortCol];}if(typeof av==='string'&&typeof bv==='string'){return sortDir*av.localeCompare(bv);}return sortDir*((parseFloat(av)||0)-(parseFloat(bv)||0));});}
   var entries=0,capital=0,picks=0;
   var nd={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0};
   var sdist={D1:0,C1:0,'02':0};
