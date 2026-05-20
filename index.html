@@ -72,6 +72,14 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle}
 .config-row label{font-size:12px;color:var(--text2)}
 footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
 .debug{background:#1a0a0a;border:1px solid #f87171;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:12px;color:#f87171;font-family:monospace;word-break:break-all}
+.live-liq,.live-delta{font-size:12px;white-space:nowrap}
+.liq-red{color:#ff4d4d;font-weight:600}
+.liq-yellow{color:#f0b429;font-weight:600}
+.liq-green{color:#34d399;font-weight:600}
+.delta-pos{color:#34d399}
+.delta-neg{color:#ff4d4d}
+.delta-neu{color:var(--text2)}
+.live-spinner{opacity:.5;font-size:11px}
 </style></head><body>
 <header>
   <div class="logo"><div class="logo-icon">Σ</div><div><h1>Sigma Signals</h1><p>Decision dashboard · Solana</p></div></div>
@@ -109,8 +117,8 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
   <div class="section">
     <div class="section-header"><div class="section-title">Signaux récents</div><div id="sig-count" class="section-sub">—</div></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th onclick="sortBy('symbol',this)">Token</th><th onclick="sortBy('source',this)">Source</th><th onclick="sortBy('note_claude',this)">Note</th><th onclick="sortBy('timestamp',this)">Détecté</th><th onclick="sortBy('age_minutes',this)">Âge</th><th onclick="sortBy('buy_ratio',this)">BuyRatio</th><th onclick="sortBy('vol_liq',this)">Vol/Liq</th><th onclick="sortBy('_score',this)">Score</th><th onclick="sortBy('_decision',this)">Décision</th><th onclick="sortBy('outcome',this)">Outcome</th><th>Dex</th></tr></thead>
-      <tbody id="signals-tbody"><tr><td colspan="11" class="empty-state">Chargement...</td></tr></tbody>
+      <thead><tr><th onclick="sortBy('symbol',this)">Token</th><th onclick="sortBy('source',this)">Source</th><th onclick="sortBy('note_claude',this)">Note</th><th onclick="sortBy('timestamp',this)">Détecté</th><th onclick="sortBy('age_minutes',this)">Âge</th><th onclick="sortBy('buy_ratio',this)">BuyRatio</th><th onclick="sortBy('vol_liq',this)">Vol/Liq</th><th onclick="sortBy('_score',this)">Score</th><th onclick="sortBy('_decision',this)">Décision</th><th onclick="sortBy('outcome',this)">Outcome</th><th title="Liquidité actuelle (fetch DexScreener live)">Liq Live</th><th title="Variation prix depuis détection">ΔPrix</th><th>Dex</th></tr></thead>
+      <tbody id="signals-tbody"><tr><td colspan="13" class="empty-state">Chargement...</td></tr></tbody>
     </table></div>
   </div>
   <div class="section">
@@ -135,7 +143,7 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
 var SHEET_ID='1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
 var allSignals=[];var charts={};var sortCol=null;var sortDir=1;var _sortTh=null;
 function dbg(msg){var d=document.getElementById('debug-box');if(d)d.innerHTML='<div class="debug">'+msg+'</div>';}
-function sortBy(col,th){if(sortCol===col){sortDir*=-1;}else{sortCol=col;sortDir=1;}if(_sortTh){_sortTh.classList.remove('sort-asc','sort-desc');}_sortTh=th;th.classList.add(sortDir===1?'sort-asc':'sort-desc');renderAll();}function loadData(){
+function sortBy(col,th){if(sortCol===col){sortDir*=-1;}else{sortCol=col;sortDir=1;}if(_sortTh){_sortTh.classList.remove('sort-asc','sort-desc');}_sortTh=th;th.classList.add(sortDir===1?'sort-asc':'sort-desc');renderAll(); setTimeout(fetchLiveMetrics, 1000);}function loadData(){
   var id=document.getElementById('sheet-id').value.trim()||SHEET_ID;
   var st=document.getElementById('ss');
   st.textContent='chargement...';st.style.color='var(--text3)';
@@ -212,7 +220,7 @@ function renderAll(){
     rows+='<td style="color:'+vc+'">'+(vv?parseFloat(vv).toFixed(1)+'x':'\u2014')+'</td>';
     rows+='<td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+bw+'%;background:'+d.c+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.c+'">'+score+'</span></div></td>';
     rows+='<td class="decision" style="color:'+d.c+'">'+d.l+'</td>';
-    rows+='<td>'+ob(s.outcome)+'</td><td>'+dex+'</td></tr>';
+    rows+='<td>'+ob(s.outcome)+'</td><td class="live-liq" data-addr="'+s.address+'" style="text-align:center"><span class="live-spinner">…</span></td><td class="live-delta" data-addr="'+s.address+'" style="text-align:center"><span class="live-spinner">…</span></td><td>'+dex+'</td></tr>';
   }
   document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="11" class="empty-state">Aucun signal</td></tr>';
   document.getElementById('sig-count').textContent=recent.length+' signaux';
@@ -233,5 +241,65 @@ function rCharts(nd,sd){
   charts.s=new Chart(document.getElementById('chart-sources'),{type:'doughnut',data:{labels:['D1','C1','02'],datasets:[{data:[sd.D1||0,sd.C1||0,sd['02']||0],backgroundColor:['#a78bfa','#34d399','#60a5fa'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right',labels:{color:'#8b8fa8',font:{size:11},boxWidth:10,padding:8}}},cutout:'65%'}} );
 }
 ['w-note','w-buy','w-vol','w-age','threshold','stake-base','stake-high'].forEach(function(id){document.getElementById(id).addEventListener('input',renderAll);});
+
+window._liveData = {};
+function fetchLiveMetrics() {
+  var rows = Array.prototype.slice.call(document.querySelectorAll("[data-addr]"));
+  var seen = {};
+  var addrs = [];
+  rows.forEach(function(el) {
+    var a = el.getAttribute("data-addr");
+    if (a && !seen[a]) { seen[a] = true; addrs.push(a); }
+  });
+  // Limiter aux 15 tokens les plus récents (addrs déjà triés du plus récent au plus ancien dans allSignals)
+  addrs = addrs.slice(0, 15);
+  if (!addrs.length) return;
+  var url = "https://api.dexscreener.com/tokens/v1/solana/" + addrs.join(",");
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(pairs) {
+      // Construire map address -> dernière pair
+      var map = {};
+      if (Array.isArray(pairs)) {
+        pairs.forEach(function(p) {
+          var base = (p.baseToken && p.baseToken.address) ? p.baseToken.address.toLowerCase() : null;
+          if (base && (!map[base] || (parseFloat(p.liquidity&&p.liquidity.usd)||0) > (parseFloat((map[base].liquidity&&map[base].liquidity.usd))||0))) {
+            map[base] = p;
+          }
+        });
+      }
+      window._liveData = map;
+      // Mettre à jour les cellules Liq Live
+      document.querySelectorAll(".live-liq[data-addr]").forEach(function(cell) {
+        var addr = (cell.getAttribute("data-addr")||"").toLowerCase();
+        var p = map[addr];
+        if (!p) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
+        var liq = parseFloat(p.liquidity && p.liquidity.usd) || 0;
+        var cls = liq < 10000 ? "liq-red" : liq < 20000 ? "liq-yellow" : "liq-green";
+        var label = liq >= 1000000 ? (liq/1000000).toFixed(1)+"M" : liq >= 1000 ? Math.round(liq/1000)+"k" : Math.round(liq).toString();
+        cell.innerHTML = "<span class='"+cls+"'>" + label + "</span>";
+      });
+      // Mettre à jour les cellules ΔPrix
+      document.querySelectorAll(".live-delta[data-addr]").forEach(function(cell) {
+        var addr = (cell.getAttribute("data-addr")||"").toLowerCase();
+        var p = map[addr];
+        // Récupérer le prix au scan depuis allSignals
+        var sig = null;
+        if (window.allSignals) {
+          for (var i=0;i<allSignals.length;i++) { if ((allSignals[i].address||"").toLowerCase()===addr) { sig=allSignals[i]; break; } }
+        }
+        if (!p || !sig) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
+        var priceLive = parseFloat(p.priceUsd) || 0;
+        var priceScan = parseFloat(sig.price_usd) || 0;
+        if (!priceScan || !priceLive) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
+        var pct = ((priceLive - priceScan) / priceScan) * 100;
+        var cls = pct > 1 ? "delta-pos" : pct < -1 ? "delta-neg" : "delta-neu";
+        var sign = pct > 0 ? "+" : "";
+        cell.innerHTML = "<span class='"+cls+"'>" + sign + pct.toFixed(1) + "%</span>";
+      });
+    })
+    .catch(function(e){ console.warn("fetchLiveMetrics error:", e.message); });
+}
 loadData();setInterval(loadData,300000);
+setInterval(fetchLiveMetrics,300000);
 </script></body></html>
