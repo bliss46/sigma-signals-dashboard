@@ -223,7 +223,7 @@ function renderAll(){
     rows+='<td>'+ob(s.outcome)+'</td>'+
 (function(){var ld=window._liveData||{};var a=(s.address||'').toLowerCase();var p=ld[a];if(!p)return '<td class="live-liq" data-addr="'+s.address+'">—</td>';var liq=parseFloat(p.liquidity&&p.liquidity.usd)||0;var cls=liq<10000?'liq-red':liq<20000?'liq-yellow':'liq-green';var lab=liq>=1e6?(liq/1e6).toFixed(1)+'M':liq>=1e3?Math.round(liq/1e3)+'k':Math.round(liq)+'';return '<td class="live-liq" data-addr="'+s.address+'"><span class="'+cls+'">'+lab+'</span></td>';})()+
 (function(){var ld=window._liveData||{};var a=(s.address||'').toLowerCase();var p=ld[a];if(!p)return '<td class="live-delta" data-addr="'+s.address+'">—</td>';var pl=parseFloat(p.priceUsd)||0;var ps=parseFloat(s.price_usd)||0;if(!pl||!ps)return '<td class="live-delta" data-addr="'+s.address+'">—</td>';var pct=((pl-ps)/ps)*100;var cls=pct>1?'delta-pos':pct<-1?'delta-neg':'delta-neu';var sign=pct>0?'+':'';return '<td class="live-delta" data-addr="'+s.address+'"><span class="'+cls+'">'+sign+pct.toFixed(1)+'%</span></td>';})()+
-'d>'+dex+'</td></tr>';
+'<td>'+dex+'</td></tr>';
   }
   document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="13" class="empty-state">Aucun signal</td></tr>';
   document.getElementById('sig-count').textContent=recent.length+' signaux';
