@@ -169,7 +169,7 @@ function sortBy(col,th){if(sortCol===col){sortDir*=-1;}else{sortCol=col;sortDir=
       st.textContent=allSignals.length+' signaux';
       st.style.color='var(--green)';
       document.getElementById('last-update').textContent=new Date().toLocaleTimeString('fr-CH');
-      renderAll();
+      renderAll(); setTimeout(fetchLiveMetrics,1000);
     })
     .catch(function(e){dbg('Fetch error: '+e.message);st.textContent='Erreur';st.style.color='var(--red)';});
 }
