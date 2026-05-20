@@ -190,23 +190,14 @@ function sbadge(s){var m={D1:'badge-d1',C1:'badge-c1','02':'badge-02'};return'<s
 function ob(o){if(!o)return'<span class="outcome-pend">attente</span>';if(o==='TP1'||o==='TP2')return'<span class="outcome-tp">'+o+'</span>';if(o==='SL')return'<span class="outcome-sl">SL</span>';return'<span class="outcome-pend">'+o+'</span>';}
 function fa(m,ts){var base=m!=null&&m!==''?parseFloat(m):0;var extra=ts?Math.round((Date.now()-new Date(ts).getTime())/60000):0;var total=base+extra;if((m==null||m==='')&&!ts)return'—';return total<60?Math.round(total)+'min':total<1440?Math.round(total/60)+'h':Math.round(total/1440)+'j';}function ft(ts){if(!ts)return'—';var diff=Math.round((Date.now()-new Date(ts).getTime())/60000);if(diff<60)return 'il y a '+diff+'min';return 'il y a '+Math.round(diff/60)+'h';}
 function renderAll(){
-    var dedupOn = document.getElementById('dedup-toggle');
-    if (window._allFull) allSignals = window._allFull.slice();
-    if (dedupOn && dedupOn.checked) {
-      var seen = {}; var uniq = [];
-      for (var i = 0; i < allSignals.length; i++) {
-        var key = (allSignals[i].address || allSignals[i].symbol || String(i)).toLowerCase();
-        if (!seen[key]) { seen[key] = true; uniq.push(allSignals[i]); }
-      }
-      allSignals = uniq;
-    }
+    
 
   var th=+document.getElementById('threshold').value,sb2=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
   document.getElementById('threshold-v').textContent=th+'/100';
   document.getElementById('stake-base-v').textContent=sb2+' CHF';
   document.getElementById('stake-high-v').textContent=sh+' CHF';
   ['w-note','w-buy','w-vol','w-age'].forEach(function(id){document.getElementById(id+'-v').textContent=document.getElementById(id).value;});
-  var recent=allSignals.slice(-50).reverse();if(sortCol){recent=recent.slice().sort(function(a,b){var av,bv;if(sortCol==='_score'){av=sc(a);bv=sc(b);}else if(sortCol==='_decision'){av=sc(a)>=+document.getElementById('threshold').value?1:0;bv=sc(b)>=+document.getElementById('threshold').value?1:0;}else if(sortCol==='timestamp'){av=a.timestamp?new Date(a.timestamp).getTime():0;bv=b.timestamp?new Date(b.timestamp).getTime():0;}else if(sortCol==='age_minutes'){var _now=Date.now();var _av=a.age_minutes!=null&&a.age_minutes!=='';var _bv=b.age_minutes!=null&&b.age_minutes!=='';av=_av?(parseFloat(a.age_minutes)+(a.timestamp?Math.round((_now-new Date(a.timestamp).getTime())/60000):0)):Infinity;bv=_bv?(parseFloat(b.age_minutes)+(b.timestamp?Math.round((_now-new Date(b.timestamp).getTime())/60000):0)):Infinity;}else{av=a[sortCol];bv=b[sortCol];}if(typeof av==='string'&&typeof bv==='string'){return sortDir*av.localeCompare(bv);}return sortDir*((parseFloat(av)||0)-(parseFloat(bv)||0));});}
+  var recent=allSignals.slice(-50).reverse();var dedupOn=document.getElementById('dedup-toggle');if(dedupOn&&dedupOn.checked){var seen={};var uniq=[];for(var di=0;di<recent.length;di++){var dk=(recent[di].address||recent[di].symbol||String(di)).toLowerCase();if(!seen[dk]){seen[dk]=true;uniq.push(recent[di]);}}recent=uniq;}if(sortCol){recent=recent.slice().sort(function(a,b){var av,bv;if(sortCol==='_score'){av=sc(a);bv=sc(b);}else if(sortCol==='_decision'){av=sc(a)>=+document.getElementById('threshold').value?1:0;bv=sc(b)>=+document.getElementById('threshold').value?1:0;}else if(sortCol==='timestamp'){av=a.timestamp?new Date(a.timestamp).getTime():0;bv=b.timestamp?new Date(b.timestamp).getTime():0;}else if(sortCol==='age_minutes'){var _now=Date.now();var _av=a.age_minutes!=null&&a.age_minutes!=='';var _bv=b.age_minutes!=null&&b.age_minutes!=='';av=_av?(parseFloat(a.age_minutes)+(a.timestamp?Math.round((_now-new Date(a.timestamp).getTime())/60000):0)):Infinity;bv=_bv?(parseFloat(b.age_minutes)+(b.timestamp?Math.round((_now-new Date(b.timestamp).getTime())/60000):0)):Infinity;}else{av=a[sortCol];bv=b[sortCol];}if(typeof av==='string'&&typeof bv==='string'){return sortDir*av.localeCompare(bv);}return sortDir*((parseFloat(av)||0)-(parseFloat(bv)||0));});}
   var entries=0,capital=0,picks=0;
   var nd={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0};
   var sdist={D1:0,C1:0,'02':0};
