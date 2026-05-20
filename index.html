@@ -109,8 +109,8 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
   <div class="section">
     <div class="section-header"><div class="section-title">Signaux récents</div><div id="sig-count" class="section-sub">—</div></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Token</th><th>Source</th><th>Note</th><th>Age</th><th>BuyRatio</th><th>Vol/Liq</th><th>Score</th><th>Décision</th><th>Outcome</th><th>Dex</th></tr></thead>
-      <tbody id="signals-tbody"><tr><td colspan="10" class="empty-state">Chargement...</td></tr></tbody>
+      <thead><tr><th>Token</th><th>Source</th><th>Note</th><th>Détecté</th><th>Âge</th><th>BuyRatio</th><th>Vol/Liq</th><th>Score</th><th>Décision</th><th>Outcome</th><th>Dex</th></tr></thead>
+      <tbody id="signals-tbody"><tr><td colspan="11" class="empty-state">Chargement...</td></tr></tbody>
     </table></div>
   </div>
   <div class="section">
@@ -179,7 +179,7 @@ function dc(score){
 }
 function sbadge(s){var m={D1:'badge-d1',C1:'badge-c1','02':'badge-02'};return'<span class="badge '+(m[s]||'badge-02')+'">'+( s||'02')+'</span>';}
 function ob(o){if(!o)return'<span class="outcome-pend">attente</span>';if(o==='TP1'||o==='TP2')return'<span class="outcome-tp">'+o+'</span>';if(o==='SL')return'<span class="outcome-sl">SL</span>';return'<span class="outcome-pend">'+o+'</span>';}
-function fa(m){if(!m)return'—';m=parseFloat(m);return m<60?Math.round(m)+'min':Math.round(m/60)+'h';}
+function fa(m){if(!m)return'—';m=parseFloat(m);return m<60?Math.round(m)+'min':Math.round(m/60)+'h';}function ft(ts){if(!ts)return'—';var d=new Date(ts);return d.toLocaleDateString('fr-CH',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('fr-CH',{hour:'2-digit',minute:'2-digit'});}
 function renderAll(){
   var th=+document.getElementById('threshold').value,sb2=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
   document.getElementById('threshold-v').textContent=th+'/100';
@@ -207,14 +207,14 @@ function renderAll(){
     var dex=s.dex_url?'<a href="'+s.dex_url+'" target="_blank" style="color:var(--blue)">↗</a>':'\u2014';
     rows+='<tr><td class="symbol">'+(s.symbol||'\u2014')+'</td><td>'+sbadge(src)+'</td>';
     rows+='<td style="color:'+nc+'">'+n+'/10</td>';
-    rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes)+'</td>';
+    rows+='<td style="color:var(--text3);font-size:12px">'+ft(s.timestamp)+'</td>';rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes)+'</td>';
     rows+='<td style="color:'+bc+'">'+(bv?bv+'%':'\u2014')+'</td>';
     rows+='<td style="color:'+vc+'">'+(vv?parseFloat(vv).toFixed(1)+'x':'\u2014')+'</td>';
     rows+='<td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+bw+'%;background:'+d.c+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.c+'">'+score+'</span></div></td>';
     rows+='<td class="decision" style="color:'+d.c+'">'+d.l+'</td>';
     rows+='<td>'+ob(s.outcome)+'</td><td>'+dex+'</td></tr>';
   }
-  document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="10" class="empty-state">Aucun signal</td></tr>';
+  document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="11" class="empty-state">Aucun signal</td></tr>';
   document.getElementById('sig-count').textContent=recent.length+' signaux';
   document.getElementById('m-total').textContent=allSignals.length;
   document.getElementById('m-picks').textContent=picks;
