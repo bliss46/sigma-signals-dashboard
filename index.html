@@ -220,9 +220,12 @@ function renderAll(){
     rows+='<td style="color:'+vc+'">'+(vv?parseFloat(vv).toFixed(1)+'x':'\u2014')+'</td>';
     rows+='<td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+bw+'%;background:'+d.c+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.c+'">'+score+'</span></div></td>';
     rows+='<td class="decision" style="color:'+d.c+'">'+d.l+'</td>';
-    rows+='<td>'+ob(s.outcome)+'</td><td class="live-liq" data-addr="'+s.address+'" style="text-align:center"><span class="live-spinner">…</span></td><td class="live-delta" data-addr="'+s.address+'" style="text-align:center"><span class="live-spinner">…</span></td><td>'+dex+'</td></tr>';
+    rows+='<td>'+ob(s.outcome)+'</td>'+
+(function(){var ld=window._liveData||{};var a=(s.address||'').toLowerCase();var p=ld[a];if(!p)return '<td class="live-liq" data-addr="'+s.address+'">—</td>';var liq=parseFloat(p.liquidity&&p.liquidity.usd)||0;var cls=liq<10000?'liq-red':liq<20000?'liq-yellow':'liq-green';var lab=liq>=1e6?(liq/1e6).toFixed(1)+'M':liq>=1e3?Math.round(liq/1e3)+'k':Math.round(liq)+'';return '<td class="live-liq" data-addr="'+s.address+'"><span class="'+cls+'">'+lab+'</span></td>';})()+
+(function(){var ld=window._liveData||{};var a=(s.address||'').toLowerCase();var p=ld[a];if(!p)return '<td class="live-delta" data-addr="'+s.address+'">—</td>';var pl=parseFloat(p.priceUsd)||0;var ps=parseFloat(s.price_usd)||0;if(!pl||!ps)return '<td class="live-delta" data-addr="'+s.address+'">—</td>';var pct=((pl-ps)/ps)*100;var cls=pct>1?'delta-pos':pct<-1?'delta-neg':'delta-neu';var sign=pct>0?'+':'';return '<td class="live-delta" data-addr="'+s.address+'"><span class="'+cls+'">'+sign+pct.toFixed(1)+'%</span></td>';})()+
+'d>'+dex+'</td></tr>';
   }
-  document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="11" class="empty-state">Aucun signal</td></tr>';
+  document.getElementById('signals-tbody').innerHTML=rows||'<tr><td colspan="13" class="empty-state">Aucun signal</td></tr>';
   document.getElementById('sig-count').textContent=recent.length+' signaux';
   document.getElementById('m-total').textContent=allSignals.length;
   document.getElementById('m-picks').textContent=picks;
@@ -243,63 +246,8 @@ function rCharts(nd,sd){
 ['w-note','w-buy','w-vol','w-age','threshold','stake-base','stake-high'].forEach(function(id){document.getElementById(id).addEventListener('input',renderAll);});
 
 window._liveData = {};
-function fetchLiveMetrics() {
-  var rows = Array.prototype.slice.call(document.querySelectorAll("[data-addr]"));
-  var seen = {};
-  var addrs = [];
-  rows.forEach(function(el) {
-    var a = el.getAttribute("data-addr");
-    if (a && !seen[a]) { seen[a] = true; addrs.push(a); }
-  });
-  // Limiter aux 15 tokens les plus récents (addrs déjà triés du plus récent au plus ancien dans allSignals)
-  addrs = addrs.slice(0, 15);
-  if (!addrs.length) return;
-  var url = "https://api.dexscreener.com/tokens/v1/solana/" + addrs.join(",");
-  fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(pairs) {
-      // Construire map address -> dernière pair
-      var map = {};
-      if (Array.isArray(pairs)) {
-        pairs.forEach(function(p) {
-          var base = (p.baseToken && p.baseToken.address) ? p.baseToken.address.toLowerCase() : null;
-          if (base && (!map[base] || (parseFloat(p.liquidity&&p.liquidity.usd)||0) > (parseFloat((map[base].liquidity&&map[base].liquidity.usd))||0))) {
-            map[base] = p;
-          }
-        });
-      }
-      window._liveData = map;
-      // Mettre à jour les cellules Liq Live
-      document.querySelectorAll(".live-liq[data-addr]").forEach(function(cell) {
-        var addr = (cell.getAttribute("data-addr")||"").toLowerCase();
-        var p = map[addr];
-        if (!p) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
-        var liq = parseFloat(p.liquidity && p.liquidity.usd) || 0;
-        var cls = liq < 10000 ? "liq-red" : liq < 20000 ? "liq-yellow" : "liq-green";
-        var label = liq >= 1000000 ? (liq/1000000).toFixed(1)+"M" : liq >= 1000 ? Math.round(liq/1000)+"k" : Math.round(liq).toString();
-        cell.innerHTML = "<span class='"+cls+"'>" + label + "</span>";
-      });
-      // Mettre à jour les cellules ΔPrix
-      document.querySelectorAll(".live-delta[data-addr]").forEach(function(cell) {
-        var addr = (cell.getAttribute("data-addr")||"").toLowerCase();
-        var p = map[addr];
-        // Récupérer le prix au scan depuis allSignals
-        var sig = null;
-        if (window.allSignals) {
-          for (var i=0;i<allSignals.length;i++) { if ((allSignals[i].address||"").toLowerCase()===addr) { sig=allSignals[i]; break; } }
-        }
-        if (!p || !sig) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
-        var priceLive = parseFloat(p.priceUsd) || 0;
-        var priceScan = parseFloat(sig.price_usd) || 0;
-        if (!priceScan || !priceLive) { cell.innerHTML = "<span class='delta-neu'>—</span>"; return; }
-        var pct = ((priceLive - priceScan) / priceScan) * 100;
-        var cls = pct > 1 ? "delta-pos" : pct < -1 ? "delta-neg" : "delta-neu";
-        var sign = pct > 0 ? "+" : "";
-        cell.innerHTML = "<span class='"+cls+"'>" + sign + pct.toFixed(1) + "%</span>";
-      });
-    })
-    .catch(function(e){ console.warn("fetchLiveMetrics error:", e.message); });
-}
+function fetchLiveMetrics(){var cells=Array.prototype.slice.call(document.querySelectorAll("[data-addr]"));var seen={};var addrs=[];cells.forEach(function(el){var a=el.getAttribute("data-addr");if(a&&!seen[a]){seen[a]=true;addrs.push(a);}});addrs=addrs.slice(0,15);if(!addrs.length)return;fetch("https://api.dexscreener.com/tokens/v1/solana/"+addrs.join(",")).then(function(r){return r.json();}).then(function(pairs){var map={};if(Array.isArray(pairs)){pairs.forEach(function(p){var base=(p.baseToken&&p.baseToken.address)?p.baseToken.address.toLowerCase():null;if(base&&(!map[base]||(parseFloat(p.liquidity&&p.liquidity.usd)||0)>(parseFloat(map[base].liquidity&&map[base].liquidity.usd)||0))){map[base]=p;}});}window._liveData=map;renderAll();}).catch(function(e){console.warn("fetchLive:",e.message);});}
+
 loadData();setInterval(loadData,300000);
 setInterval(fetchLiveMetrics,300000);
 </script></body></html>
