@@ -205,7 +205,7 @@ function renderAll(){
     var vc=vv>=1?'#34d399':'var(--text2)';
     var bw=Math.min(score,100);
     var dex=s.dex_url?'<a href="'+s.dex_url+'" target="_blank" style="color:var(--blue)">↗</a>':'\u2014';
-    rows+='<tr><td class="symbol">'+(s.symbol||'\u2014')+'</td><td>'+sbadge(src)+'</td>';
+    rows+='<tr><td class="symbol">'+((s.is_top_pick==='OUI'||s.is_top_pick===true)?'\u2b50 ':'')+( s.symbol||'\u2014')+'</td><td>'+sbadge(src)+'</td>';
     rows+='<td style="color:'+nc+'">'+n+'/10</td>';
     rows+='<td style="color:var(--text3);font-size:12px">'+ft(s.timestamp)+'</td>';rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes,s.timestamp)+'</td>';
     rows+='<td style="color:'+bc+'">'+(bv?bv+'%':'\u2014')+'</td>';
