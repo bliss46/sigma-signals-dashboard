@@ -116,7 +116,7 @@ footer{text-align:center;padding:20px;color:var(--text3);font-size:11px}
   </div>
   <div class="section">
     <div class="section-header"><div class="section-title">Signaux récents</div><div id="sig-count" class="section-sub">—</div></div>
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><div style="margin:8px 0 10px 0;display:flex;align-items:center;gap:8px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#aaa;"><input type="checkbox" id="dedup-toggle" style="cursor:pointer;width:14px;height:14px;">1 ligne par token (plus récente seulement)</label></div><table>
       <thead><tr><th onclick="sortBy('symbol',this)">Token</th><th onclick="sortBy('source',this)">Source</th><th onclick="sortBy('note_claude',this)">Note</th><th onclick="sortBy('timestamp',this)">Détecté</th><th onclick="sortBy('age_minutes',this)">Âge</th><th onclick="sortBy('buy_ratio',this)">BuyRatio</th><th onclick="sortBy('vol_liq',this)">Vol/Liq</th><th onclick="sortBy('_score',this)">Score</th><th onclick="sortBy('_decision',this)">Décision</th><th onclick="sortBy('outcome',this)">Outcome</th><th title="Liquidité actuelle (fetch DexScreener live)">Liq Live</th><th title="Variation prix depuis détection">ΔPrix</th><th>Dex</th></tr></thead>
       <tbody id="signals-tbody"><tr><td colspan="13" class="empty-state">Chargement...</td></tr></tbody>
     </table></div>
@@ -189,6 +189,16 @@ function sbadge(s){var m={D1:'badge-d1',C1:'badge-c1','02':'badge-02'};return'<s
 function ob(o){if(!o)return'<span class="outcome-pend">attente</span>';if(o==='TP1'||o==='TP2')return'<span class="outcome-tp">'+o+'</span>';if(o==='SL')return'<span class="outcome-sl">SL</span>';return'<span class="outcome-pend">'+o+'</span>';}
 function fa(m,ts){var base=m!=null&&m!==''?parseFloat(m):0;var extra=ts?Math.round((Date.now()-new Date(ts).getTime())/60000):0;var total=base+extra;if((m==null||m==='')&&!ts)return'—';return total<60?Math.round(total)+'min':total<1440?Math.round(total/60)+'h':Math.round(total/1440)+'j';}function ft(ts){if(!ts)return'—';var diff=Math.round((Date.now()-new Date(ts).getTime())/60000);if(diff<60)return 'il y a '+diff+'min';return 'il y a '+Math.round(diff/60)+'h';}
 function renderAll(){
+    var dedupOn = document.getElementById('dedup-toggle');
+    if (dedupOn && dedupOn.checked) {
+      var seen = {}; var uniq = [];
+      for (var i = 0; i < data.length; i++) {
+        var key = (data[i].address || data[i].symbol || String(i)).toLowerCase();
+        if (!seen[key]) { seen[key] = true; uniq.push(data[i]); }
+      }
+      data = uniq;
+    }
+
   var th=+document.getElementById('threshold').value,sb2=+document.getElementById('stake-base').value,sh=+document.getElementById('stake-high').value;
   document.getElementById('threshold-v').textContent=th+'/100';
   document.getElementById('stake-base-v').textContent=sb2+' CHF';
@@ -249,5 +259,9 @@ window._liveData = {};
 function fetchLiveMetrics(){var cells=Array.prototype.slice.call(document.querySelectorAll("[data-addr]"));var seen={};var addrs=[];cells.forEach(function(el){var a=el.getAttribute("data-addr");if(a&&!seen[a]){seen[a]=true;addrs.push(a);}});addrs=addrs.slice(0,15);if(!addrs.length)return;fetch("https://api.dexscreener.com/tokens/v1/solana/"+addrs.join(",")).then(function(r){return r.json();}).then(function(pairs){var map={};if(Array.isArray(pairs)){pairs.forEach(function(p){var base=(p.baseToken&&p.baseToken.address)?p.baseToken.address.toLowerCase():null;if(base&&(!map[base]||(parseFloat(p.liquidity&&p.liquidity.usd)||0)>(parseFloat(map[base].liquidity&&map[base].liquidity.usd)||0))){map[base]=p;}});}window._liveData=map;renderAll();}).catch(function(e){console.warn("fetchLive:",e.message);});}
 
 loadData();setInterval(loadData,300000);
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'dedup-toggle') renderAll();
+  });
 setInterval(fetchLiveMetrics,300000);
 </script></body></html>
