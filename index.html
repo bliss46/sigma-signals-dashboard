@@ -206,7 +206,7 @@ function renderAll(){
     var s=recent[i];
     var score=sc(s),d=dc(score);
     var n=parseFloat(s.note_claude)||0,bv=parseFloat(s.buy_ratio||s.buyratio)||0,vv=parseFloat(s.vol_liq||s.volliq)||0;
-    var src=String(s.source||'02').replace(/workflow ?/i,'').trim();
+    var rawSrc=String(s.source||'').replace(/workflow ?/i,'').trim(); var src=['02','C1','D1'].indexOf(rawSrc)>=0?rawSrc:'02';
     if(d.l!=='Passer'){entries++;capital+=parseInt(d.l);}
     if(s.is_top_pick==='OUI'||s.is_top_pick===true)picks++;
     var nk=Math.round(n);if(nd[nk]!==undefined)nd[nk]++;
