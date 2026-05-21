@@ -327,7 +327,7 @@ setInterval(fetchLiveMetrics,300000);
             timestamp: r[cols['timestamp']]||'',
             price_usd: parseFloat(r[cols['price_usd']])||null,
             change_24h: r[cols['change_24h']],
-            source: (function(ts){ if(!ts)return'?'; var d=new Date(ts).getHours(); return '02'; })(r[cols['timestamp']])
+            source: r[cols['source']] || '02'
           };});
         // Déduplication — garder le plus récent par adresse
         var seen = {}; var uniq = [];
