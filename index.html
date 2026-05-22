@@ -218,7 +218,7 @@ function renderAll(){
     var dex=s.dex_url?'<a href="'+s.dex_url+'" target="_blank" style="color:var(--blue)">↗</a>':'\u2014';
     rows+='<tr><td class="symbol">'+((s.is_top_pick==='OUI'||s.is_top_pick===true)?'\u2b50 ':'')+( s.symbol||'\u2014')+'</td><td>'+sbadge(src)+'</td>';
     rows+='<td style="color:'+nc+'">'+n+'/10</td>';
-    rows+='<td style="color:var(--text3);font-size:12px">'+ft(s.timestamp)+'</td>';rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes,s.timestamp)+'</td>';
+    rows+='<td style="color:var(--text3);font-size:12px">'+ft(s.timestamp||s.l1)+'</td>';rows+='<td style="color:var(--text2)">'+fa(s.age_minutes||s.ageminutes,s.timestamp)+'</td>';
     rows+='<td style="color:'+bc+'">'+(bv?bv+'%':'\u2014')+'</td>';
     rows+='<td style="color:'+vc+'">'+(vv?parseFloat(vv).toFixed(1)+'x':'\u2014')+'</td>';
     rows+='<td><div class="score-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:'+bw+'%;background:'+d.c+'"></div></div><span style="font-size:12px;font-weight:600;color:'+d.c+'">'+score+'</span></div></td>';
