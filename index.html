@@ -371,7 +371,7 @@ setInterval(fetchLiveMetrics,300000);
           html += '<tr style="border-bottom:1px solid var(--border)">' +
             '<td style="padding:8px 6px;font-weight:600">⭐ ' + p.symbol + '</td>' +
             '<td style="padding:8px 6px">' + srcBadge(src) + '</td>' +
-            '<td style="padding:8px 6px;text-align:right;color:var(--text2)">' + relTime(p.timestamp) + '</td>' +
+            '<td style="padding:8px 6px;text-align:right;color:var(--text2)">' + relTime(p.timestamp||p.l1) + '</td>' +
             '<td style="padding:8px 6px;text-align:right;color:var(--text2)">—</td>' +
             '<td style="padding:8px 6px;text-align:right">' + signalPriceTxt + '</td>' +
             '<td style="padding:8px 6px;text-align:right">' + livePriceTxt + '</td>' +
