@@ -286,7 +286,7 @@ setInterval(fetchLiveMetrics,300000);
   </div>
   <script>
   (function() {
-    function relTime(ts) {
+    function relTime(ts) { if(!ts)return'—';
       var d = Date.now() - new Date(ts).getTime();
       var m = Math.round(d/60000);
       if (m < 60) return 'il y a ' + m + 'min';
