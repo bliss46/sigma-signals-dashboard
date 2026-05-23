@@ -29,6 +29,14 @@ body { background: var(--bg0); color: var(--text); font-family: 'SF Mono', 'Fira
 .refresh-btn { background: var(--accent); border: none; color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
 .refresh-btn:hover { background: #6d28d9; }
 
+/* TABS */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--bg1); }
+.tab-btn { padding: 10px 18px; font-size: 12px; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: inherit; transition: color 0.15s; white-space: nowrap; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
 /* WIDGETS */
 .widgets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 20px; }
 .widget { background: var(--bg1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -111,6 +119,38 @@ tr:hover td { background: var(--bg1); }
 .dex-link { color: var(--accent); text-decoration: none; font-size: 11px; }
 .dex-link:hover { color: var(--blue); }
 
+/* ── PRE-LAUNCH TAB ── */
+.pl-widgets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 20px; }
+.pl-controls { padding: 0 20px 12px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.pl-table-wrap { padding: 0 20px 20px; overflow-x: auto; }
+.pl-table-wrap table { min-width: 780px; }
+
+/* Progress bar */
+.prog-wrap { display: flex; align-items: center; gap: 8px; }
+.prog-bg { background: var(--bg3); border-radius: 4px; height: 6px; width: 80px; overflow: hidden; flex-shrink: 0; }
+.prog-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.prog-hot { background: var(--pump); }
+.prog-mid { background: var(--orange); }
+.prog-low { background: var(--muted); }
+.prog-pct { font-size: 12px; font-weight: 700; min-width: 36px; }
+.prog-pct.hot { color: var(--pump); }
+.prog-pct.mid { color: var(--orange); }
+.prog-pct.low { color: var(--muted); }
+
+/* ETA badge */
+.eta-urgent { color: var(--pump); font-weight: 700; font-size: 11px; }
+.eta-soon { color: var(--orange); font-size: 11px; }
+.eta-later { color: var(--muted); font-size: 11px; }
+
+/* Token badge */
+.badge-hot { background: rgba(0,212,170,0.12); color: var(--pump); font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+.badge-new { background: rgba(63,185,80,0.12); color: var(--green); font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+.badge-norm { background: var(--bg3); color: var(--muted); font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+
+.pl-note { font-size: 11px; color: var(--muted); padding: 8px 20px 16px; }
+.pl-empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 12px; }
+.pl-error { padding: 20px; background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.2); border-radius: 8px; margin: 16px 20px; font-size: 12px; color: var(--dump); }
+
 /* LOADING */
 #loading { position: fixed; inset: 0; background: var(--bg0); display: flex; align-items: center; justify-content: center; z-index: 999; font-size: 14px; color: var(--muted); gap: 12px; }
 </style>
@@ -135,6 +175,18 @@ tr:hover td { background: var(--bg1); }
     <button class="refresh-btn" onclick="forceRefresh()">↻ Refresh</button>
   </div>
 </div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('signals', this)">📊 Signaux</button>
+  <button class="tab-btn" onclick="switchTab('g1', this)">🎯 G1 Tracker</button>
+  <button class="tab-btn" onclick="switchTab('prelaunch', this)" id="tab-prelaunch-btn">🌱 Pre-Launch</button>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     TAB: SIGNAUX
+══════════════════════════════════════════════ -->
+<div id="tab-signals" class="tab-content active">
 
 <div class="widgets">
   <div class="widget">
@@ -208,7 +260,13 @@ tr:hover td { background: var(--bg1); }
   </table>
 </div>
 
-<div class="section">
+</div><!-- /tab-signals -->
+
+<!-- ══════════════════════════════════════════════
+     TAB: G1 TRACKER
+══════════════════════════════════════════════ -->
+<div id="tab-g1" class="tab-content">
+<div style="padding: 20px;">
   <div class="section-title">Suivi G1 — TOP PICK tracker</div>
   <table>
     <thead>
@@ -219,13 +277,95 @@ tr:hover td { background: var(--bg1); }
     <tbody id="g1-tbody"></tbody>
   </table>
 </div>
+</div><!-- /tab-g1 -->
+
+<!-- ══════════════════════════════════════════════
+     TAB: PRE-LAUNCH
+══════════════════════════════════════════════ -->
+<div id="tab-prelaunch" class="tab-content">
+
+<div class="pl-widgets">
+  <div class="widget">
+    <div class="widget-label">En bonding curve</div>
+    <div class="widget-value" id="pl-w-total">—</div>
+    <div class="widget-sub">progression ≥ 50%</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">Graduation &lt; 30min</div>
+    <div class="widget-value green" id="pl-w-urgent">—</div>
+    <div class="widget-sub">ETA estimé</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">Buy ratio moyen</div>
+    <div class="widget-value" id="pl-w-br">—</div>
+    <div class="widget-sub">tokens ≥ 50%</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">Dernière MAJ</div>
+    <div class="widget-value" id="pl-w-upd" style="font-size:14px">—</div>
+    <div class="widget-sub">refresh 5 min</div>
+  </div>
+</div>
+
+<div class="pl-controls">
+  <div class="control-group">
+    <label>Progression min :</label>
+    <input type="range" id="pl-prog-min" min="0" max="95" step="5" value="50"
+      oninput="document.getElementById('pl-prog-v').textContent=this.value+'%'; renderPrelaunch()">
+    <span class="range-val" id="pl-prog-v">50%</span>
+  </div>
+  <div class="control-group">
+    <label>Trier par :</label>
+    <select id="pl-sort" onchange="renderPrelaunch()"
+      style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;font-family:inherit;">
+      <option value="progress">Progression</option>
+      <option value="buy_ratio">Buy ratio</option>
+      <option value="age">Âge</option>
+      <option value="eta">ETA graduation</option>
+    </select>
+  </div>
+  <div class="control-group" style="margin-left:auto">
+    <button class="refresh-btn" onclick="loadPrelaunch()">↻ Refresh</button>
+    <span id="pl-spin" style="display:none"><span class="spin"></span></span>
+  </div>
+</div>
+
+<div id="pl-error" class="pl-error" style="display:none"></div>
+<div id="pl-empty" class="pl-empty" style="display:none">Aucun token en bonding curve avec progression ≥ 50% actuellement.</div>
+
+<div class="pl-table-wrap">
+  <div class="sig-count" id="pl-count"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Token</th>
+        <th>Progression</th>
+        <th>SOL levés</th>
+        <th>Buy ratio</th>
+        <th>MCap</th>
+        <th>Âge</th>
+        <th>ETA grad.</th>
+        <th>Lien</th>
+      </tr>
+    </thead>
+    <tbody id="pl-tbody"></tbody>
+  </table>
+</div>
+
+<p class="pl-note">
+  Source : pump.fun — Graduation à 85 SOL (~$12k MCap) → listing automatique sur Raydium/PumpSwap — Refresh toutes les 5 min
+</p>
+
+</div><!-- /tab-prelaunch -->
 
 <script>
 var SHEET_ID = '1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
 var allSignals = [];
-var liveData = {}; // address -> {ch1h, ch24h, liq, price, buys1h, sells1h}
+var liveData = {};
 var sortCol = 'note_live', sortDir = -1;
 var filterSrc = 'ALL';
+var plTokens = []; // raw pump.fun data
+var activeTab = 'signals';
 
 // ── CLOCK ──
 setInterval(function(){
@@ -233,6 +373,16 @@ setInterval(function(){
   document.getElementById('clock').textContent =
     ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
 }, 1000);
+
+// ── TAB SWITCHING ──
+function switchTab(name, btn) {
+  activeTab = name;
+  document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'prelaunch' && plTokens.length === 0) loadPrelaunch();
+}
 
 // ── TIME HELPERS ──
 function relTime(ts) {
@@ -256,67 +406,26 @@ function ageStr(age_minutes, ts) {
 }
 
 // ── LIVE NOTE CALCULATION ──
-// Mirrors Claude's scoring rules using live DexScreener data
 function calcNoteLive(signal, live) {
-  // Base: use original Claude note as starting point (signal quality at detection)
   var base = parseFloat(signal.note_claude) || 5;
-
   if (!live) return { note: base, badge: null, label: 'ok' };
-
   var ch1h  = live.ch1h  != null ? parseFloat(live.ch1h)  : null;
   var ch24h = live.ch24h != null ? parseFloat(live.ch24h) : null;
   var liq   = live.liq   != null ? parseFloat(live.liq)   : null;
   var note  = base;
   var badge = null;
-
-  // Rule 1: dump post-pump — change_24h > 200% ET change_1h < -20%
-  if (ch24h !== null && ch1h !== null && ch24h > 200 && ch1h < -20) {
-    note = Math.min(note, 3);
-    badge = 'DUMP POST-PUMP';
-  }
-  // Rule 2: change_1h < -30% → momentum très négatif
-  else if (ch1h !== null && ch1h < -30) {
-    note = Math.max(0, note - 2);
-    badge = 'MOMENTUM NEG';
-  }
-  // Rule 3: change_1h entre -20% et -30%
-  else if (ch1h !== null && ch1h < -20) {
-    note = Math.max(0, note - 1);
-    badge = 'EN BAISSE';
-  }
-  // Rule 4: pump avancé change_24h > 500%
-  else if (ch24h !== null && ch24h > 500) {
-    note = Math.max(0, note - 3);
-    note = Math.min(note, 5);
-    badge = 'PUMP AVANCÉ';
-  }
-  // Rule 5: pump avancé change_24h > 300%
-  else if (ch24h !== null && ch24h > 300) {
-    note = Math.max(0, note - 2);
-    badge = 'PUMP';
-  }
-  // Rule 6: strong pump 1h
-  else if (ch1h !== null && ch1h > 50) {
-    note = Math.min(note, 7);
-    badge = 'PUMP 1H';
-  }
-  // Rule 7: liquidity too low
-  if (liq !== null && liq < 8000) {
-    note = Math.max(0, note - 2);
-  }
-  // Rule 8: Birdeye buy pressure
+  if (ch24h !== null && ch1h !== null && ch24h > 200 && ch1h < -20) { note = Math.min(note, 3); badge = 'DUMP POST-PUMP'; }
+  else if (ch1h !== null && ch1h < -30) { note = Math.max(0, note - 2); badge = 'MOMENTUM NEG'; }
+  else if (ch1h !== null && ch1h < -20) { note = Math.max(0, note - 1); badge = 'EN BAISSE'; }
+  else if (ch24h !== null && ch24h > 500) { note = Math.max(0, note - 3); note = Math.min(note, 5); badge = 'PUMP AVANCÉ'; }
+  else if (ch24h !== null && ch24h > 300) { note = Math.max(0, note - 2); badge = 'PUMP'; }
+  else if (ch1h !== null && ch1h > 50) { note = Math.min(note, 7); badge = 'PUMP 1H'; }
+  if (liq !== null && liq < 8000) note = Math.max(0, note - 2);
   var be_bp = signal.buy_pressure_be != null ? parseFloat(signal.buy_pressure_be) : null;
-  if (be_bp !== null) {
-    if (be_bp < 40) note = Math.max(0, note - 1);
-    else if (be_bp > 65) note = Math.min(10, note + 1);
-  }
-  // Clamp
+  if (be_bp !== null) { if (be_bp < 40) note = Math.max(0, note - 1); else if (be_bp > 65) note = Math.min(10, note + 1); }
   note = Math.min(10, Math.max(0, Math.round(note)));
-
   var label = note >= 8 ? 'top' : note >= 6 ? 'good' : note >= 4 ? 'ok' : note >= 2 ? 'weak' : 'dump';
-  // Override label if dump detected
   if (badge && badge.indexOf('DUMP') > -1) label = 'dump';
-
   return { note: note, badge: badge, label: label };
 }
 
@@ -326,10 +435,8 @@ function decision(noteLive, liq) {
   return '<span class="dec-pass">— Passer</span>';
 }
 
-// ── DEDUP: keep most recent per address ──
 function dedup(signals) {
   var map = {};
-  // signals are oldest→newest, so iterate forward, last write wins = most recent
   for (var i = 0; i < signals.length; i++) {
     var key = (signals[i].address || signals[i].symbol || String(i)).toLowerCase();
     map[key] = signals[i];
@@ -337,11 +444,9 @@ function dedup(signals) {
   return Object.values(map);
 }
 
-// ── FETCH LIVE METRICS (batched DexScreener) ──
 function fetchLive(tokens, cb) {
   var addrs = tokens.map(function(t){ return t.address; }).filter(Boolean);
   if (!addrs.length) { cb({}); return; }
-  // Batch into groups of 30
   var batches = [];
   for (var i = 0; i < addrs.length; i += 30) batches.push(addrs.slice(i, i+30));
   var results = {};
@@ -371,48 +476,36 @@ function fetchLive(tokens, cb) {
   });
 }
 
-// ── RENDER TABLE ──
+// ── RENDER SIGNALS TABLE ──
 function renderTable() {
   var noteMin  = parseInt(document.getElementById('sl-note').value) || 0;
   var liqMin   = (parseInt(document.getElementById('sl-liq').value) || 0) * 1000;
   var hideDump = document.getElementById('hide-dumps').checked;
   var search   = (document.getElementById('search').value || '').toLowerCase();
-
-  // Start from deduped recent 100
   var base = window._dedupBase || [];
   var rows = base.slice();
-
-  // Enrich with live data + computed note
   rows = rows.map(function(s) {
     var addr = (s.address || '').toLowerCase();
     var live = liveData[addr] || null;
     var nl = calcNoteLive(s, live);
     return Object.assign({}, s, {
-      _live: live,
-      _noteLive: nl.note,
-      _badge: nl.badge,
-      _label: nl.label,
-      _liq: live ? live.liq : null,
-      _ch1h: live ? live.ch1h : null,
+      _live: live, _noteLive: nl.note, _badge: nl.badge, _label: nl.label,
+      _liq: live ? live.liq : null, _ch1h: live ? live.ch1h : null,
       _ch24h: live ? live.ch24h : null,
       _price: live ? live.price : (s.price_usd ? parseFloat(s.price_usd) : null)
     });
   });
-
-  // Filters
   if (filterSrc !== 'ALL') rows = rows.filter(function(s){ return s.source === filterSrc; });
   if (search) rows = rows.filter(function(s){ return (s.symbol||'').toLowerCase().indexOf(search) > -1 || (s.name||'').toLowerCase().indexOf(search) > -1; });
   rows = rows.filter(function(s){ return s._noteLive >= noteMin; });
   if (liqMin > 0) rows = rows.filter(function(s){ return s._liq != null && s._liq >= liqMin; });
   if (hideDump) rows = rows.filter(function(s){ return s._badge == null || s._badge.indexOf('DUMP') === -1; });
-
-  // Sort
   var now = Date.now();
   rows.sort(function(a, b) {
     var av, bv;
     if (sortCol === 'note_live') { av = a._noteLive; bv = b._noteLive; }
-    else if (sortCol === 'symbol') { av = (a.symbol||''); bv = (b.symbol||''); return sortDir * av.localeCompare(bv); }
-    else if (sortCol === 'source') { av = (a.source||''); bv = (b.source||''); return sortDir * av.localeCompare(bv); }
+    else if (sortCol === 'symbol') { return sortDir * (a.symbol||'').localeCompare(b.symbol||''); }
+    else if (sortCol === 'source') { return sortDir * (a.source||'').localeCompare(b.source||''); }
     else if (sortCol === 'detected') {
       av = a.timestamp||a.l1; bv = b.timestamp||b.l1;
       if (!av && !bv) return 0; if (!av) return 1; if (!bv) return -1;
@@ -426,7 +519,7 @@ function renderTable() {
     }
     else if (sortCol === 'ch1h')  { av = a._ch1h;  bv = b._ch1h;  if(av==null)return 1; if(bv==null)return -1; }
     else if (sortCol === 'ch24h') { av = a._ch24h; bv = b._ch24h; if(av==null)return 1; if(bv==null)return -1; }
-    else if (sortCol === 'liq')   {
+    else if (sortCol === 'liq') {
       av = a._liq; bv = b._liq;
       if(av==null&&bv==null)return 0; if(av==null)return 1; if(bv==null)return -1;
     }
@@ -434,71 +527,46 @@ function renderTable() {
     else { av = 0; bv = 0; }
     return sortDir * ((av > bv ? 1 : av < bv ? -1 : 0));
   });
-
-  // Update widgets
   var allDedup = window._dedupBase || [];
   var topPicks = allDedup.filter(function(s){ var l=liveData[(s.address||'').toLowerCase()]||null; return calcNoteLive(s,l).note >= 7; });
   var dumps = allDedup.filter(function(s){ var l=liveData[(s.address||'').toLowerCase()]||null; return l && l.ch1h != null && l.ch1h < -20; });
   document.getElementById('w-top').textContent = topPicks.length;
   document.getElementById('w-dumps').textContent = dumps.length;
   document.getElementById('sig-count').textContent = rows.length + ' token' + (rows.length > 1 ? 's' : '') + ' affichés';
-
-  // Build rows HTML
   var html = '';
   rows.forEach(function(s) {
     var live = s._live;
     var nl = s._noteLive;
     var noteClass = s._label;
     var ts = s.timestamp || s.l1;
-    var addr = (s.address||'').toLowerCase();
-
-    // Note cell
     var noteHtml = '<span class="note-live ' + noteClass + '">' + nl + '/10';
     if (s._badge) noteHtml += ' <span class="note-badge badge-' + (noteClass === 'dump' ? 'dump' : noteClass === 'top' ? 'top' : noteClass === 'good' ? 'pump' : 'neg') + '">' + s._badge + '</span>';
     noteHtml += '</span>';
-
-    // ch1h
     var ch1hHtml = live && live.ch1h != null
       ? '<span class="' + (live.ch1h > 5 ? 'ch-pos' : live.ch1h < -5 ? 'ch-neg' : 'ch-neu') + '">' + (live.ch1h > 0 ? '+' : '') + live.ch1h.toFixed(1) + '%</span>'
       : '<span class="ch-neu">—</span>';
-
-    // ch24h
     var ch24hHtml = live && live.ch24h != null
       ? '<span class="' + (live.ch24h > 5 ? 'ch-pos' : live.ch24h < -5 ? 'ch-neg' : 'ch-neu') + '">' + (live.ch24h > 0 ? '+' : '') + live.ch24h.toFixed(1) + '%</span>'
       : '<span class="ch-neu">—</span>';
-
-    // liq
     var liqHtml = '—';
     if (live && live.liq != null) {
       var liqClass = live.liq < 10000 ? 'liq-red' : live.liq < 20000 ? 'liq-yellow' : 'liq-green';
       liqHtml = '<span class="' + liqClass + '">' + (live.liq >= 1000 ? Math.round(live.liq/1000) + 'k' : Math.round(live.liq)) + '</span>';
     }
-
-    // source
     var srcClass = s.source === 'D1' ? 'src-d1' : s.source === 'C1' ? 'src-c1' : 'src-02';
     var srcHtml = '<span class="src-pill ' + srcClass + '">' + (s.source||'?') + '</span>';
-
-    // buy_ratio — use live if available
     var brLive = (live && live.buys1h != null && (live.buys1h + live.sells1h) > 0)
-      ? Math.round(live.buys1h / (live.buys1h + live.sells1h) * 100)
-      : null;
+      ? Math.round(live.buys1h / (live.buys1h + live.sells1h) * 100) : null;
     var brVal = brLive != null ? brLive : (s.buy_ratio != null ? parseFloat(s.buy_ratio) : null);
     var brHtml = brVal != null
       ? '<span class="' + (brVal > 60 ? 'ch-pos' : brVal < 40 ? 'ch-neg' : 'ch-neu') + '">' + brVal + '%</span>'
       : '<span class="ch-neu">—</span>';
-
-    // token name
     var topStar = (s.is_top_pick === 'OUI' || s.is_top_pick === true) ? '<span class="top-star">⭐</span>' : '';
     var tokenHtml = topStar + '<span class="token-name">' + (s.symbol||'?') + '</span>';
     if (s.name && s.name !== s.symbol) tokenHtml += '<br><span class="token-addr">' + s.name.slice(0,20) + '</span>';
-
-    // dex link
     var dexUrl = s.dex_url || ('https://dexscreener.com/solana/' + (s.address||''));
     var dexHtml = '<a class="dex-link" href="' + dexUrl + '" target="_blank">↗</a>';
-
-    // decision
     var decHtml = decision(nl, live ? live.liq : null);
-
     html += '<tr>' +
       '<td>' + tokenHtml + '</td>' +
       '<td>' + srcHtml + '</td>' +
@@ -513,10 +581,7 @@ function renderTable() {
       '<td>' + dexHtml + '</td>' +
     '</tr>';
   });
-
   document.getElementById('tbody').innerHTML = html;
-
-  // Update sort arrows
   document.querySelectorAll('th').forEach(function(th){
     th.classList.remove('sorted');
     var arrow = th.querySelector('.sort-arrow');
@@ -525,7 +590,7 @@ function renderTable() {
   var cols = ['symbol','source','note_live','detected','age','ch1h','ch24h','liq','buy_ratio'];
   var idx = cols.indexOf(sortCol);
   if (idx > -1) {
-    var ths = document.querySelectorAll('th');
+    var ths = document.querySelectorAll('#tab-signals th');
     if (ths[idx]) {
       ths[idx].classList.add('sorted');
       var arr = ths[idx].querySelector('.sort-arrow');
@@ -547,7 +612,7 @@ function setFilter(btn) {
   renderTable();
 }
 
-// ── LOAD DATA FROM SHEET ──
+// ── LOAD SHEET ──
 function loadData(id) {
   var url = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json';
   fetch(url).then(function(r){ return r.text(); })
@@ -561,32 +626,21 @@ function loadData(id) {
         cols.forEach(function(col, i) {
           obj[col] = row.c[i] ? (row.c[i].v !== null && row.c[i].v !== undefined ? row.c[i].v : '') : '';
         });
-        // Normalize
         obj.timestamp = obj.timestamp || null;
         obj.l1 = obj.l1 || null;
         if (obj.symbol && String(obj.symbol).trim()) allSignals.push(obj);
       });
-
-      // Dedup: 1 line per token (most recent), then take 100 most recent
       var deduped = dedup(allSignals);
-      // Sort by detection time desc
       deduped.sort(function(a,b){
         var ta = a.timestamp||a.l1, tb = b.timestamp||b.l1;
         if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1;
         return new Date(tb).getTime() - new Date(ta).getTime();
       });
       window._dedupBase = deduped.slice(0, 100);
-
-      // Update static widgets
       document.getElementById('w-total').textContent = allSignals.length;
       document.getElementById('w-unique').textContent = deduped.length + ' tokens uniques';
-
       document.getElementById('loading').style.display = 'none';
-
-      // Initial render with spinners (no live data yet)
       renderTable();
-
-      // Fetch live
       fetchAndRender();
     })
     .catch(function(e){ document.getElementById('loading').innerHTML = '⚠️ Erreur chargement sheet: ' + e.message; });
@@ -605,20 +659,230 @@ function fetchAndRender() {
 }
 
 function forceRefresh() {
-  // Reload sheet + live
   loadData(SHEET_ID);
+  if (activeTab === 'prelaunch') loadPrelaunch();
 }
 
-// Auto-refresh live every 5 min, sheet every 15 min
-setInterval(fetchAndRender, 5 * 60 * 1000);
-setInterval(forceRefresh, 15 * 60 * 1000);
+// ── PRE-LAUNCH — pump.fun ──
+// pump.fun API: https://frontend-api.pump.fun/coins?sort=last_trade_timestamp&order=DESC&limit=50&includeNsfw=false
+// Fields: mint (address), symbol, name, virtual_sol_reserves, virtual_token_reserves,
+//         complete (bool — graduated), created_timestamp, reply_count,
+//         last_trade_unix_time, usd_market_cap
+// Bonding curve progress = virtual_sol_reserves / 85 * 100 (approx)
+// buy_ratio: not directly available — use recent_buy_count / (recent_buy_count + recent_sell_count) if available
+// Fallback: use king_of_the_hill_timestamp presence as hot signal
+
+function loadPrelaunch() {
+  document.getElementById('pl-error').style.display = 'none';
+  document.getElementById('pl-empty').style.display = 'none';
+  document.getElementById('pl-spin').style.display = 'inline';
+  document.getElementById('pl-w-upd').textContent = '…';
+
+  // Fetch top coins by last trade — we need enough to find ones with progress >= threshold
+  var url = 'https://frontend-api.pump.fun/coins?sort=last_trade_timestamp&order=DESC&limit=50&includeNsfw=false';
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      var coins = Array.isArray(data) ? data : [];
+      // Filter out graduated coins (already on Raydium)
+      coins = coins.filter(function(c){ return !c.complete; });
+      plTokens = coins;
+      document.getElementById('pl-spin').style.display = 'none';
+      var n = new Date();
+      document.getElementById('pl-w-upd').textContent =
+        ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2);
+      renderPrelaunch();
+    })
+    .catch(function(err) {
+      document.getElementById('pl-spin').style.display = 'none';
+      document.getElementById('pl-w-upd').textContent = 'Erreur';
+      var msg = err.message || 'Erreur inconnue';
+      // CORS or network error — explain clearly
+      document.getElementById('pl-error').style.display = 'block';
+      document.getElementById('pl-error').innerHTML =
+        '⚠️ Impossible de contacter pump.fun : ' + msg + '<br>' +
+        '<span style="color:var(--muted);font-size:11px;margin-top:4px;display:block">' +
+        'Si vous voyez une erreur CORS ou réseau, pump.fun peut avoir mis à jour sa politique d\'accès. ' +
+        'Vérifier si <a href="https://frontend-api.pump.fun/coins?limit=3" target="_blank" style="color:var(--blue)">l\'API est accessible</a>.' +
+        '</span>';
+    });
+}
+
+// Estimate bonding curve progress from virtual_sol_reserves
+// pump.fun bonding curve target: ~85 SOL
+// virtual_sol_reserves starts at ~30 SOL and increases as people buy
+// Progress = (virtual_sol_reserves - 30) / (85 - 30) * 100
+// But real formula uses token price * supply, let's use the simpler approximation
+function calcProgress(coin) {
+  // If king_of_the_hill_timestamp exists, it's very close to graduation
+  if (coin.king_of_the_hill_timestamp) return 95;
+  // Use virtual_sol_reserves as proxy (30 = 0%, 85 = 100%)
+  var sol = coin.virtual_sol_reserves ? coin.virtual_sol_reserves / 1e9 : 0; // lamports to SOL
+  var progress = Math.min(99, Math.max(0, Math.round((sol - 30) / 55 * 100)));
+  return progress;
+}
+
+// Estimate ETA to graduation based on recent momentum
+// Simple: if progress P and age A minutes, rate = P/A %/min, remaining = (100-P)/rate minutes
+function calcETA(coin, progress) {
+  if (progress >= 99) return 0;
+  var ageMs = Date.now() - (coin.created_timestamp || Date.now());
+  var ageMin = Math.max(1, ageMs / 60000);
+  var rate = progress / ageMin; // %/min average
+  if (rate <= 0) return null;
+  var remaining = (100 - progress) / rate;
+  return Math.round(remaining);
+}
+
+function etaHtml(etaMin) {
+  if (etaMin === null) return '<span class="eta-later">—</span>';
+  if (etaMin <= 0) return '<span class="eta-urgent">Imminent</span>';
+  if (etaMin <= 15) return '<span class="eta-urgent">~' + etaMin + ' min</span>';
+  if (etaMin <= 30) return '<span class="eta-soon">~' + etaMin + ' min</span>';
+  if (etaMin <= 90) return '<span class="eta-later">~' + etaMin + ' min</span>';
+  var h = Math.round(etaMin / 60);
+  return '<span class="eta-later">~' + h + 'h</span>';
+}
+
+function renderPrelaunch() {
+  var progMin = parseInt(document.getElementById('pl-prog-min').value) || 50;
+  var sortMode = document.getElementById('pl-sort').value;
+
+  var coins = plTokens.slice();
+
+  // Enrich with computed fields
+  coins = coins.map(function(c) {
+    var progress = calcProgress(c);
+    var ageMs = Date.now() - (c.created_timestamp || Date.now());
+    var ageMin = Math.round(ageMs / 60000);
+    // buy ratio: pump.fun exposes reply_count but not buy/sell counts directly
+    // Use king_of_the_hill as proxy for hot; otherwise approximate from market cap momentum
+    // If not available fall back to null
+    var buyRatio = null;
+    if (c.recent_buy_count != null && c.recent_sell_count != null) {
+      var total = (c.recent_buy_count || 0) + (c.recent_sell_count || 0);
+      buyRatio = total > 0 ? Math.round(c.recent_buy_count / total * 100) : null;
+    }
+    var eta = calcETA(c, progress);
+    var solRaised = c.virtual_sol_reserves ? Math.round(c.virtual_sol_reserves / 1e9 * 10) / 10 : null;
+    var mcap = c.usd_market_cap ? c.usd_market_cap : null;
+    return Object.assign({}, c, {
+      _progress: progress,
+      _ageMin: ageMin,
+      _buyRatio: buyRatio,
+      _eta: eta,
+      _solRaised: solRaised,
+      _mcap: mcap
+    });
+  });
+
+  // Filter by min progress and not graduated
+  coins = coins.filter(function(c){ return c._progress >= progMin && !c.complete; });
+
+  // Sort
+  coins.sort(function(a, b) {
+    if (sortMode === 'progress') return b._progress - a._progress;
+    if (sortMode === 'buy_ratio') {
+      if (a._buyRatio == null && b._buyRatio == null) return 0;
+      if (a._buyRatio == null) return 1; if (b._buyRatio == null) return -1;
+      return b._buyRatio - a._buyRatio;
+    }
+    if (sortMode === 'age') return a._ageMin - b._ageMin;
+    if (sortMode === 'eta') {
+      if (a._eta == null && b._eta == null) return 0;
+      if (a._eta == null) return 1; if (b._eta == null) return -1;
+      return a._eta - b._eta;
+    }
+    return b._progress - a._progress;
+  });
+
+  // Update widgets
+  document.getElementById('pl-w-total').textContent = coins.length;
+  var urgent = coins.filter(function(c){ return c._eta != null && c._eta <= 30; }).length;
+  document.getElementById('pl-w-urgent').textContent = urgent;
+  var brVals = coins.filter(function(c){ return c._buyRatio != null; }).map(function(c){ return c._buyRatio; });
+  document.getElementById('pl-w-br').textContent = brVals.length > 0
+    ? Math.round(brVals.reduce(function(a,b){return a+b;},0) / brVals.length) + '%'
+    : '—';
+
+  document.getElementById('pl-count').textContent = coins.length + ' token' + (coins.length !== 1 ? 's' : '') + ' affichés';
+
+  if (coins.length === 0) {
+    document.getElementById('pl-empty').style.display = 'block';
+    document.getElementById('pl-tbody').innerHTML = '';
+    return;
+  }
+  document.getElementById('pl-empty').style.display = 'none';
+
+  var html = '';
+  coins.forEach(function(c) {
+    var prog = c._progress;
+    var progClass = prog >= 80 ? 'hot' : prog >= 65 ? 'mid' : 'low';
+    var progBarClass = 'prog-' + progClass;
+    var progHtml = '<div class="prog-wrap">' +
+      '<div class="prog-bg"><div class="prog-fill ' + progBarClass + '" style="width:' + Math.min(100,prog) + '%"></div></div>' +
+      '<span class="prog-pct ' + progClass + '">' + prog + '%</span>' +
+      '</div>';
+
+    var solHtml = c._solRaised != null ? c._solRaised + ' SOL' : '—';
+
+    var brHtml = c._buyRatio != null
+      ? '<span class="' + (c._buyRatio > 60 ? 'ch-pos' : c._buyRatio < 40 ? 'ch-neg' : 'ch-neu') + '">' + c._buyRatio + '%</span>'
+      : '<span class="ch-neu">—</span>';
+
+    var mcapHtml = c._mcap != null
+      ? '$' + (c._mcap >= 1000 ? Math.round(c._mcap/1000) + 'k' : Math.round(c._mcap))
+      : '—';
+
+    var ageHtml = c._ageMin < 60
+      ? c._ageMin + 'min'
+      : (Math.round(c._ageMin/60*10)/10 + 'h');
+
+    // Badge
+    var badgeClass = prog >= 80 ? 'badge-hot' : c._ageMin < 15 ? 'badge-new' : 'badge-norm';
+    var badgeLabel = prog >= 80 ? 'Chaud' : c._ageMin < 15 ? 'Nouveau' : 'Normal';
+
+    var sym = c.symbol || '?';
+    var name = c.name || '';
+    var tokenHtml = '<span class="token-name">' + sym + '</span>' +
+      ' <span class="' + badgeClass + '">' + badgeLabel + '</span>';
+    if (name && name !== sym) tokenHtml += '<br><span class="token-addr">' + name.slice(0,22) + '</span>';
+
+    var mint = c.mint || '';
+    var pumpUrl = mint ? 'https://pump.fun/' + mint : '#';
+    var linkHtml = mint
+      ? '<a class="dex-link" href="' + pumpUrl + '" target="_blank">pump.fun ↗</a>'
+      : '—';
+
+    html += '<tr>' +
+      '<td>' + tokenHtml + '</td>' +
+      '<td>' + progHtml + '</td>' +
+      '<td>' + solHtml + '</td>' +
+      '<td>' + brHtml + '</td>' +
+      '<td>' + mcapHtml + '</td>' +
+      '<td>' + ageHtml + '</td>' +
+      '<td>' + etaHtml(c._eta) + '</td>' +
+      '<td>' + linkHtml + '</td>' +
+    '</tr>';
+  });
+
+  document.getElementById('pl-tbody').innerHTML = html;
+}
 
 // ── G1 TRACKER ──
 function loadG1() {
-  // G1 data comes from pending_checks via Postgres - not directly accessible from browser
-  // Show placeholder
   document.getElementById('g1-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">Données G1 disponibles via n8n uniquement</td></tr>';
 }
+
+// ── AUTO-REFRESH ──
+setInterval(fetchAndRender, 5 * 60 * 1000);
+setInterval(forceRefresh, 15 * 60 * 1000);
+// Pre-launch refresh every 5 min only when tab is active
+setInterval(function(){ if (activeTab === 'prelaunch') loadPrelaunch(); }, 5 * 60 * 1000);
 
 // ── INIT ──
 window.onload = function() {
