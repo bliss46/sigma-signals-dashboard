@@ -180,7 +180,7 @@ tr:hover td { background: var(--bg1); }
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('signals', this)">📊 Signaux</button>
   <button class="tab-btn" onclick="switchTab('g1', this)">🎯 G1 Tracker</button>
-  <button class="tab-btn" onclick="switchTab('prelaunch', this)" id="tab-prelaunch-btn">🌱 Pre-Launch</button>
+  <button class="tab-btn" onclick="switchTab('prelaunch', this)" id="tab-prelaunch-btn">🌱 Early (&lt;30min)</button>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -286,42 +286,35 @@ tr:hover td { background: var(--bg1); }
 
 <div class="pl-widgets">
   <div class="widget">
-    <div class="widget-label">En bonding curve</div>
+    <div class="widget-label">Paires &lt; 30min</div>
     <div class="widget-value" id="pl-w-total">—</div>
-    <div class="widget-sub">progression ≥ 50%</div>
+    <div class="widget-sub">Solana · liq ≥ 5k$</div>
   </div>
   <div class="widget">
-    <div class="widget-label">Graduation &lt; 30min</div>
+    <div class="widget-label">Ultra-early &lt; 10min</div>
     <div class="widget-value green" id="pl-w-urgent">—</div>
-    <div class="widget-sub">ETA estimé</div>
+    <div class="widget-sub">fenêtre idéale</div>
   </div>
   <div class="widget">
     <div class="widget-label">Buy ratio moyen</div>
     <div class="widget-value" id="pl-w-br">—</div>
-    <div class="widget-sub">tokens ≥ 50%</div>
+    <div class="widget-sub">pression acheteuse</div>
   </div>
   <div class="widget">
     <div class="widget-label">Dernière MAJ</div>
     <div class="widget-value" id="pl-w-upd" style="font-size:14px">—</div>
-    <div class="widget-sub">refresh 5 min</div>
+    <div class="widget-sub">proxy n8n · 5 min</div>
   </div>
 </div>
 
 <div class="pl-controls">
   <div class="control-group">
-    <label>Progression min :</label>
-    <input type="range" id="pl-prog-min" min="0" max="95" step="5" value="50"
-      oninput="document.getElementById('pl-prog-v').textContent=this.value+'%'; renderPrelaunch()">
-    <span class="range-val" id="pl-prog-v">50%</span>
-  </div>
-  <div class="control-group">
     <label>Trier par :</label>
     <select id="pl-sort" onchange="renderPrelaunch()"
       style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;font-family:inherit;">
-      <option value="progress">Progression</option>
+      <option value="age">Âge (plus récent)</option>
       <option value="buy_ratio">Buy ratio</option>
-      <option value="age">Âge</option>
-      <option value="eta">ETA graduation</option>
+      <option value="eta">Liquidité</option>
     </select>
   </div>
   <div class="control-group" style="margin-left:auto">
@@ -330,8 +323,11 @@ tr:hover td { background: var(--bg1); }
   </div>
 </div>
 
+<!-- input caché pour que renderPrelaunch() puisse lire pl-prog-min sans erreur -->
+<input type="hidden" id="pl-prog-min" value="50">
+
 <div id="pl-error" class="pl-error" style="display:none"></div>
-<div id="pl-empty" class="pl-empty" style="display:none">Aucun token en bonding curve avec progression ≥ 50% actuellement.</div>
+<div id="pl-empty" class="pl-empty" style="display:none">Aucune paire Solana &lt; 30min avec liq ≥ 5k$ détectée actuellement.</div>
 
 <div class="pl-table-wrap">
   <div class="sig-count" id="pl-count"></div>
@@ -339,12 +335,12 @@ tr:hover td { background: var(--bg1); }
     <thead>
       <tr>
         <th>Token</th>
-        <th>Progression</th>
-        <th>SOL levés</th>
+        <th>Fraîcheur</th>
+        <th>Liq</th>
         <th>Buy ratio</th>
         <th>MCap</th>
-        <th>Âge</th>
-        <th>ETA grad.</th>
+        <th>Vol 5min</th>
+        <th>DEX</th>
         <th>Lien</th>
       </tr>
     </thead>
@@ -353,7 +349,7 @@ tr:hover td { background: var(--bg1); }
 </div>
 
 <p class="pl-note">
-  Source : pump.fun — Graduation à 85 SOL (~$12k MCap) → listing automatique sur Raydium/PumpSwap — Refresh toutes les 5 min
+  Source : DexScreener via proxy n8n — Paires Solana créées dans les 30 dernières minutes — Liq ≥ 5k$ — Refresh toutes les 5 min
 </p>
 
 </div><!-- /tab-prelaunch -->
@@ -663,153 +659,67 @@ function forceRefresh() {
   if (activeTab === 'prelaunch') loadPrelaunch();
 }
 
-// ── PRE-LAUNCH — pump.fun ──
-// pump.fun API: https://frontend-api.pump.fun/coins?sort=last_trade_timestamp&order=DESC&limit=50&includeNsfw=false
-// Fields: mint (address), symbol, name, virtual_sol_reserves, virtual_token_reserves,
-//         complete (bool — graduated), created_timestamp, reply_count,
-//         last_trade_unix_time, usd_market_cap
-// Bonding curve progress = virtual_sol_reserves / 85 * 100 (approx)
-// buy_ratio: not directly available — use recent_buy_count / (recent_buy_count + recent_sell_count) if available
-// Fallback: use king_of_the_hill_timestamp presence as hot signal
+
+// ── PRE-LAUNCH — proxy n8n (DexScreener < 30min) ──
+var PRELAUNCH_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/prelaunch-data';
 
 function loadPrelaunch() {
   document.getElementById('pl-error').style.display = 'none';
   document.getElementById('pl-empty').style.display = 'none';
   document.getElementById('pl-spin').style.display = 'inline';
   document.getElementById('pl-w-upd').textContent = '…';
-
-  // Fetch top coins by last trade — we need enough to find ones with progress >= threshold
-  var url = 'https://frontend-api.pump.fun/coins?sort=last_trade_timestamp&order=DESC&limit=50&includeNsfw=false';
-
-  fetch(url)
+  fetch(PRELAUNCH_WEBHOOK)
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     })
     .then(function(data) {
-      var coins = Array.isArray(data) ? data : [];
-      // Filter out graduated coins (already on Raydium)
-      coins = coins.filter(function(c){ return !c.complete; });
-      plTokens = coins;
+      plTokens = Array.isArray(data.coins) ? data.coins : [];
       document.getElementById('pl-spin').style.display = 'none';
-      var n = new Date();
+      var ft = data.fetched_at ? new Date(data.fetched_at) : new Date();
       document.getElementById('pl-w-upd').textContent =
-        ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2);
+        ('0'+ft.getHours()).slice(-2)+':'+('0'+ft.getMinutes()).slice(-2);
       renderPrelaunch();
     })
     .catch(function(err) {
       document.getElementById('pl-spin').style.display = 'none';
       document.getElementById('pl-w-upd').textContent = 'Erreur';
-      var msg = err.message || 'Erreur inconnue';
-      // CORS or network error — explain clearly
       document.getElementById('pl-error').style.display = 'block';
       document.getElementById('pl-error').innerHTML =
-        '⚠️ Impossible de contacter pump.fun : ' + msg + '<br>' +
-        '<span style="color:var(--muted);font-size:11px;margin-top:4px;display:block">' +
-        'Si vous voyez une erreur CORS ou réseau, pump.fun peut avoir mis à jour sa politique d\'accès. ' +
-        'Vérifier si <a href="https://frontend-api.pump.fun/coins?limit=3" target="_blank" style="color:var(--blue)">l\'API est accessible</a>.' +
-        '</span>';
+        '⚠️ Proxy n8n injoignable : ' + (err.message||'erreur') + '<br>' +
+        '<span style="color:var(--muted);font-size:11px">Vérifier que le workflow E1 est actif dans n8n.</span>';
     });
-}
-
-// Estimate bonding curve progress from virtual_sol_reserves
-// pump.fun bonding curve target: ~85 SOL
-// virtual_sol_reserves starts at ~30 SOL and increases as people buy
-// Progress = (virtual_sol_reserves - 30) / (85 - 30) * 100
-// But real formula uses token price * supply, let's use the simpler approximation
-function calcProgress(coin) {
-  // If king_of_the_hill_timestamp exists, it's very close to graduation
-  if (coin.king_of_the_hill_timestamp) return 95;
-  // Use virtual_sol_reserves as proxy (30 = 0%, 85 = 100%)
-  var sol = coin.virtual_sol_reserves ? coin.virtual_sol_reserves / 1e9 : 0; // lamports to SOL
-  var progress = Math.min(99, Math.max(0, Math.round((sol - 30) / 55 * 100)));
-  return progress;
-}
-
-// Estimate ETA to graduation based on recent momentum
-// Simple: if progress P and age A minutes, rate = P/A %/min, remaining = (100-P)/rate minutes
-function calcETA(coin, progress) {
-  if (progress >= 99) return 0;
-  var ageMs = Date.now() - (coin.created_timestamp || Date.now());
-  var ageMin = Math.max(1, ageMs / 60000);
-  var rate = progress / ageMin; // %/min average
-  if (rate <= 0) return null;
-  var remaining = (100 - progress) / rate;
-  return Math.round(remaining);
-}
-
-function etaHtml(etaMin) {
-  if (etaMin === null) return '<span class="eta-later">—</span>';
-  if (etaMin <= 0) return '<span class="eta-urgent">Imminent</span>';
-  if (etaMin <= 15) return '<span class="eta-urgent">~' + etaMin + ' min</span>';
-  if (etaMin <= 30) return '<span class="eta-soon">~' + etaMin + ' min</span>';
-  if (etaMin <= 90) return '<span class="eta-later">~' + etaMin + ' min</span>';
-  var h = Math.round(etaMin / 60);
-  return '<span class="eta-later">~' + h + 'h</span>';
 }
 
 function renderPrelaunch() {
-  var progMin = parseInt(document.getElementById('pl-prog-min').value) || 50;
   var sortMode = document.getElementById('pl-sort').value;
-
   var coins = plTokens.slice();
 
-  // Enrich with computed fields
   coins = coins.map(function(c) {
-    var progress = calcProgress(c);
-    var ageMs = Date.now() - (c.created_timestamp || Date.now());
-    var ageMin = Math.round(ageMs / 60000);
-    // buy ratio: pump.fun exposes reply_count but not buy/sell counts directly
-    // Use king_of_the_hill as proxy for hot; otherwise approximate from market cap momentum
-    // If not available fall back to null
-    var buyRatio = null;
-    if (c.recent_buy_count != null && c.recent_sell_count != null) {
-      var total = (c.recent_buy_count || 0) + (c.recent_sell_count || 0);
-      buyRatio = total > 0 ? Math.round(c.recent_buy_count / total * 100) : null;
-    }
-    var eta = calcETA(c, progress);
-    var solRaised = c.virtual_sol_reserves ? Math.round(c.virtual_sol_reserves / 1e9 * 10) / 10 : null;
-    var mcap = c.usd_market_cap ? c.usd_market_cap : null;
     return Object.assign({}, c, {
-      _progress: progress,
-      _ageMin: ageMin,
-      _buyRatio: buyRatio,
-      _eta: eta,
-      _solRaised: solRaised,
-      _mcap: mcap
+      _ageMin: c.age_minutes != null ? c.age_minutes : 99,
+      _buyRatio: c.buy_ratio != null ? c.buy_ratio : null
     });
   });
 
-  // Filter by min progress and not graduated
-  coins = coins.filter(function(c){ return c._progress >= progMin && !c.complete; });
-
-  // Sort
   coins.sort(function(a, b) {
-    if (sortMode === 'progress') return b._progress - a._progress;
+    if (sortMode === 'progress' || sortMode === 'age') return a._ageMin - b._ageMin;
     if (sortMode === 'buy_ratio') {
-      if (a._buyRatio == null && b._buyRatio == null) return 0;
-      if (a._buyRatio == null) return 1; if (b._buyRatio == null) return -1;
+      if (a._buyRatio==null&&b._buyRatio==null) return 0;
+      if (a._buyRatio==null) return 1; if (b._buyRatio==null) return -1;
       return b._buyRatio - a._buyRatio;
     }
-    if (sortMode === 'age') return a._ageMin - b._ageMin;
-    if (sortMode === 'eta') {
-      if (a._eta == null && b._eta == null) return 0;
-      if (a._eta == null) return 1; if (b._eta == null) return -1;
-      return a._eta - b._eta;
-    }
-    return b._progress - a._progress;
+    if (sortMode === 'eta') return (b.liq_usd||0) - (a.liq_usd||0);
+    return a._ageMin - b._ageMin;
   });
 
-  // Update widgets
+  // Widgets
   document.getElementById('pl-w-total').textContent = coins.length;
-  var urgent = coins.filter(function(c){ return c._eta != null && c._eta <= 30; }).length;
-  document.getElementById('pl-w-urgent').textContent = urgent;
-  var brVals = coins.filter(function(c){ return c._buyRatio != null; }).map(function(c){ return c._buyRatio; });
+  document.getElementById('pl-w-urgent').textContent = coins.filter(function(c){ return c._ageMin <= 10; }).length;
+  var brVals = coins.filter(function(c){ return c._buyRatio!=null; }).map(function(c){ return c._buyRatio; });
   document.getElementById('pl-w-br').textContent = brVals.length > 0
-    ? Math.round(brVals.reduce(function(a,b){return a+b;},0) / brVals.length) + '%'
-    : '—';
-
-  document.getElementById('pl-count').textContent = coins.length + ' token' + (coins.length !== 1 ? 's' : '') + ' affichés';
+    ? Math.round(brVals.reduce(function(a,b){return a+b;},0)/brVals.length)+'%' : '—';
+  document.getElementById('pl-count').textContent = coins.length + ' token' + (coins.length!==1?'s':'') + ' affichés';
 
   if (coins.length === 0) {
     document.getElementById('pl-empty').style.display = 'block';
@@ -820,58 +730,42 @@ function renderPrelaunch() {
 
   var html = '';
   coins.forEach(function(c) {
-    var prog = c._progress;
-    var progClass = prog >= 80 ? 'hot' : prog >= 65 ? 'mid' : 'low';
-    var progBarClass = 'prog-' + progClass;
-    var progHtml = '<div class="prog-wrap">' +
-      '<div class="prog-bg"><div class="prog-fill ' + progBarClass + '" style="width:' + Math.min(100,prog) + '%"></div></div>' +
-      '<span class="prog-pct ' + progClass + '">' + prog + '%</span>' +
-      '</div>';
+    var age = c._ageMin;
+    var liq = c.liq_usd || 0;
+    // Barre de fraîcheur: inverse de l'âge (30min = 0%, 0min = 100%)
+    var freshPct = Math.max(0, Math.round((30 - age) / 30 * 100));
+    var fc = age < 5 ? 'hot' : age < 15 ? 'mid' : 'low';
+    var progHtml = '<div class="prog-wrap"><div class="prog-bg"><div class="prog-fill prog-' + fc + '" style="width:' + freshPct + '%"></div></div><span class="prog-pct ' + fc + '">' + age + 'min</span></div>';
 
-    var solHtml = c._solRaised != null ? c._solRaised + ' SOL' : '—';
+    var liqCls = liq >= 20000 ? 'liq-green' : liq >= 10000 ? 'liq-yellow' : 'liq-red';
+    var liqHtml = '<span class="' + liqCls + '">' + (liq>=1000?Math.round(liq/1000)+'k':'<1k') + '$</span>';
 
-    var brHtml = c._buyRatio != null
-      ? '<span class="' + (c._buyRatio > 60 ? 'ch-pos' : c._buyRatio < 40 ? 'ch-neg' : 'ch-neu') + '">' + c._buyRatio + '%</span>'
-      : '<span class="ch-neu">—</span>';
+    var br = c._buyRatio;
+    var brHtml = br!=null ? '<span class="'+(br>60?'ch-pos':br<40?'ch-neg':'ch-neu')+'">' + br + '%</span>' : '<span class="ch-neu">—</span>';
 
-    var mcapHtml = c._mcap != null
-      ? '$' + (c._mcap >= 1000 ? Math.round(c._mcap/1000) + 'k' : Math.round(c._mcap))
-      : '—';
+    var mc = c.mcap_usd;
+    var mcapHtml = mc ? '$'+(mc>=1000?Math.round(mc/1000)+'k':mc) : '—';
 
-    var ageHtml = c._ageMin < 60
-      ? c._ageMin + 'min'
-      : (Math.round(c._ageMin/60*10)/10 + 'h');
+    var v5 = c.volume_5m;
+    var volHtml = v5&&v5>0 ? '<span class="ch-pos">$'+(v5>=1000?Math.round(v5/1000)+'k':v5)+'</span>' : '<span class="ch-neu">—</span>';
 
-    // Badge
-    var badgeClass = prog >= 80 ? 'badge-hot' : c._ageMin < 15 ? 'badge-new' : 'badge-norm';
-    var badgeLabel = prog >= 80 ? 'Chaud' : c._ageMin < 15 ? 'Nouveau' : 'Normal';
+    var dex = c.dex || 'DEX';
+    var dexBadge = '<span class="'+(dex==='PumpSwap'?'badge-hot':dex==='Raydium'?'badge-new':'badge-norm')+'">' + dex + '</span>';
 
-    var sym = c.symbol || '?';
-    var name = c.name || '';
-    var tokenHtml = '<span class="token-name">' + sym + '</span>' +
-      ' <span class="' + badgeClass + '">' + badgeLabel + '</span>';
+    var badgeCls = age < 5 ? 'badge-hot' : age < 15 ? 'badge-new' : 'badge-norm';
+    var badgeLbl = age < 5 ? 'Ultra-early' : age < 15 ? 'Early' : 'Normal';
+    var sym = c.symbol||'?', name = c.name||'';
+    var tokenHtml = '<span class="token-name">' + sym + '</span> <span class="' + badgeCls + '">' + badgeLbl + '</span>';
     if (name && name !== sym) tokenHtml += '<br><span class="token-addr">' + name.slice(0,22) + '</span>';
 
-    var mint = c.mint || '';
-    var pumpUrl = mint ? 'https://pump.fun/' + mint : '#';
-    var linkHtml = mint
-      ? '<a class="dex-link" href="' + pumpUrl + '" target="_blank">pump.fun ↗</a>'
-      : '—';
+    var dexUrl = c.dex_url || ('https://dexscreener.com/solana/'+(c.address||''));
+    var linkHtml = '<a class="dex-link" href="' + dexUrl + '" target="_blank">DEX ↗</a>';
 
-    html += '<tr>' +
-      '<td>' + tokenHtml + '</td>' +
-      '<td>' + progHtml + '</td>' +
-      '<td>' + solHtml + '</td>' +
-      '<td>' + brHtml + '</td>' +
-      '<td>' + mcapHtml + '</td>' +
-      '<td>' + ageHtml + '</td>' +
-      '<td>' + etaHtml(c._eta) + '</td>' +
-      '<td>' + linkHtml + '</td>' +
-    '</tr>';
+    html += '<tr><td>' + tokenHtml + '</td><td>' + progHtml + '</td><td>' + liqHtml + '</td><td>' + brHtml + '</td><td>' + mcapHtml + '</td><td>' + volHtml + '</td><td>' + dexBadge + '</td><td>' + linkHtml + '</td></tr>';
   });
-
   document.getElementById('pl-tbody').innerHTML = html;
 }
+
 
 // ── G1 TRACKER ──
 function loadG1() {
