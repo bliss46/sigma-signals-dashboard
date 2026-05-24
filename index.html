@@ -266,17 +266,55 @@ tr:hover td { background: var(--bg1); }
      TAB: G1 TRACKER
 ══════════════════════════════════════════════ -->
 <div id="tab-g1" class="tab-content">
-<div style="padding: 20px;">
-  <div class="section-title">Suivi G1 — TOP PICK tracker</div>
-  <table>
+
+<div class="widgets">
+  <div class="widget">
+    <div class="widget-label">TOP PICK suivis</div>
+    <div class="widget-value" id="g1-w-total">—</div>
+    <div class="widget-sub">dans pending_checks</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">En profit</div>
+    <div class="widget-value green" id="g1-w-pos">—</div>
+    <div class="widget-sub">variation > 0%</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">TP1/TP2 atteints</div>
+    <div class="widget-value" id="g1-w-tp" style="color:var(--pump)">—</div>
+    <div class="widget-sub">≥ +100%</div>
+  </div>
+  <div class="widget">
+    <div class="widget-label">Dernière MAJ</div>
+    <div class="widget-value" id="g1-w-upd" style="font-size:14px">—</div>
+    <div class="widget-sub"><span id="g1-spin" style="display:none"><span class="spin"></span></span> webhook n8n</div>
+  </div>
+</div>
+
+<div style="padding: 0 20px 8px; display:flex; align-items:center; gap:12px;">
+  <button class="refresh-btn" onclick="loadG1()">↻ Refresh</button>
+  <span id="g1-error" style="display:none; color:var(--dump); font-size:11px;"></span>
+</div>
+
+<div style="padding: 0 20px 20px; overflow-x:auto;">
+  <div class="sig-count" id="g1-count"></div>
+  <table style="min-width:800px;">
     <thead>
       <tr>
-        <th>Token</th><th>Signal à</th><th>Prix signal</th><th>Prix actuel</th><th>Variation</th><th>Horizon</th><th>Outcome</th>
+        <th>Token</th>
+        <th>Source</th>
+        <th>Signal à</th>
+        <th>Prix entrée</th>
+        <th>Prix actuel</th>
+        <th>Variation</th>
+        <th>Liq live</th>
+        <th>Outcome</th>
+        <th>DEX</th>
       </tr>
     </thead>
     <tbody id="g1-tbody"></tbody>
   </table>
 </div>
+
 </div><!-- /tab-g1 -->
 
 <!-- ══════════════════════════════════════════════
@@ -768,8 +806,100 @@ function renderPrelaunch() {
 
 
 // ── G1 TRACKER ──
+var G1_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/g1-data';
+
 function loadG1() {
-  document.getElementById('g1-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">Données G1 disponibles via n8n uniquement</td></tr>';
+  document.getElementById('g1-spin').style.display = 'inline';
+  document.getElementById('g1-error').style.display = 'none';
+  document.getElementById('g1-w-upd').textContent = '\u2026';
+
+  fetch(G1_WEBHOOK)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      document.getElementById('g1-spin').style.display = 'none';
+      var n = new Date();
+      document.getElementById('g1-w-upd').textContent =
+        ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
+      renderG1(data.checks || []);
+    })
+    .catch(function(err) {
+      document.getElementById('g1-spin').style.display = 'none';
+      document.getElementById('g1-w-upd').textContent = 'Erreur';
+      document.getElementById('g1-error').style.display = 'inline';
+      document.getElementById('g1-error').textContent = err.message;
+    });
+}
+
+function renderG1(checks) {
+  document.getElementById('g1-w-total').textContent = checks.length;
+  var pos = checks.filter(function(c){ return c.change_pct != null && c.change_pct > 0; }).length;
+  var tps = checks.filter(function(c){ return c.outcome_live === 'TP1_HIT' || c.outcome_live === 'TP2_HIT'; }).length;
+  document.getElementById('g1-w-pos').textContent = pos;
+  document.getElementById('g1-w-tp').textContent = tps;
+  document.getElementById('g1-count').textContent = checks.length + ' entr\u00e9e' + (checks.length !== 1 ? 's' : '');
+
+  if (!checks.length) {
+    document.getElementById('g1-tbody').innerHTML =
+      '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px">Aucun TOP PICK en cours de suivi</td></tr>';
+    return;
+  }
+
+  var outcomeColor = {
+    'TP2_HIT': '#ffd700', 'TP1_HIT': 'var(--pump)', 'POSITIF': 'var(--pump)',
+    'SL_HIT': 'var(--dump)', 'NEGATIF': 'var(--dump)',
+    'EXPIRED': 'var(--muted)', 'PENDING': 'var(--text)'
+  };
+  var outcomeLabel = {
+    'TP2_HIT': '\u2b50 TP2 +250%', 'TP1_HIT': '\u2705 TP1 +100%', 'POSITIF': '\u2197 Positif',
+    'SL_HIT': '\u274c SL -30%', 'NEGATIF': '\u2198 N\u00e9gatif',
+    'EXPIRED': '\u23f0 Expir\u00e9', 'PENDING': '\u23f3 En cours'
+  };
+
+  var html = '';
+  checks.forEach(function(c) {
+    var entry = c.signal_price != null ? parseFloat(c.signal_price) : (c.price_at_signal != null ? parseFloat(c.price_at_signal) : null);
+    var cur = c.current_price != null ? parseFloat(c.current_price) : null;
+    var chg = c.change_pct != null ? parseFloat(c.change_pct) : null;
+
+    var entryHtml = entry != null ? ('$' + (entry < 0.001 ? entry.toExponential(2) : entry.toPrecision(4))) : '\u2014';
+    var curHtml = cur != null ? ('$' + (cur < 0.001 ? cur.toExponential(2) : cur.toPrecision(4))) : '\u2014';
+    var chgHtml = chg != null
+      ? '<span class="' + (chg > 0 ? 'ch-pos' : chg < 0 ? 'ch-neg' : 'ch-neu') + '" style="font-weight:600">' + (chg > 0 ? '+' : '') + chg.toFixed(1) + '%</span>'
+      : '<span class="ch-neu">\u2014</span>';
+
+    var liq = c.liq_usd != null ? c.liq_usd : null;
+    var liqHtml = liq != null
+      ? '<span class="' + (liq >= 20000 ? 'liq-green' : liq >= 10000 ? 'liq-yellow' : 'liq-red') + '">' + (liq >= 1000 ? Math.round(liq/1000) + 'k' : liq) + '$</span>'
+      : '<span class="ch-neu">\u2014</span>';
+
+    var outcome = c.outcome_live || c.outcome || 'PENDING';
+    var outHtml = '<span style="color:' + (outcomeColor[outcome] || 'var(--text)') + ';font-size:11px;font-weight:600">' + (outcomeLabel[outcome] || outcome) + '</span>';
+
+    var signalAt = c.signal_at || c.check_at || '';
+    var signalHtml = signalAt ? relTime(signalAt) : '\u2014';
+
+    var srcClass = c.source === 'D1' ? 'src-d1' : c.source === 'C1' ? 'src-c1' : 'src-02';
+    var srcHtml = c.source ? '<span class="src-pill ' + srcClass + '">' + c.source + '</span>' : '\u2014';
+
+    var dexUrl = c.dex_url || ('https://dexscreener.com/solana/' + (c.address || ''));
+
+    html += '<tr>' +
+      '<td><span class="token-name">' + (c.symbol || '?') + '</span></td>' +
+      '<td>' + srcHtml + '</td>' +
+      '<td>' + signalHtml + '</td>' +
+      '<td>' + entryHtml + '</td>' +
+      '<td>' + curHtml + '</td>' +
+      '<td>' + chgHtml + '</td>' +
+      '<td>' + liqHtml + '</td>' +
+      '<td>' + outHtml + '</td>' +
+      '<td><a class="dex-link" href="' + dexUrl + '" target="_blank">\u2197</a></td>' +
+    '</tr>';
+  });
+
+  document.getElementById('g1-tbody').innerHTML = html;
 }
 
 // ── AUTO-REFRESH ──
