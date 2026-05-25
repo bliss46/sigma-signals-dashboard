@@ -471,7 +471,7 @@ function calcNoteLive(signal, live) {
 }
 
 function decision(noteLive, liq) {
-  if (noteLive >= 8 && liq && liq > 20000) return '<span class="dec-buy">⚡ ACHETER</span>';
+  if (noteLive >= 7 && liq && liq > 30000) return '<span class="dec-buy">⚡ ACHETER</span>';
   if (noteLive >= 6 && liq && liq > 15000) return '<span class="dec-watch">👁 SURVEILLER</span>';
   return '<span class="dec-pass">— Passer</span>';
 }
@@ -544,7 +544,7 @@ function renderTable() {
         var live2 = liveData[addr2] || null;
         var nl2 = calcNoteLive(s, live2);
         var liq2 = live2 ? live2.liq : null;
-        if (nl2.note >= 8 && liq2 != null && liq2 >= 20000) return 2;
+        if (nl2.note >= 7 && liq2 != null && liq2 >= 30000) return 2;
         if (nl2.note >= 6 && liq2 != null && liq2 >= 15000) return 1;
         return 0;
       })()
