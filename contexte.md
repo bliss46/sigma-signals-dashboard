@@ -213,7 +213,7 @@ L'idée n'est PAS d'automatiser le trading lui-même (Sigma n'a pas d'API publiq
 - Projet Vercel : `prj_D0z1kDLUj438HvVTi2LcTkzkZAK2`, team `team_5mp46qxS8H1vJoliKx6HciIN`
 - Fichier principal : `index.html` (ES5 pur, pas de framework)
 - Déploiement : automatique sur push `main` via intégration GitHub
-- Token GitHub : `ghp_REDACTED_RENOUVELER_AVANT_18_JUIN_2026` (**expire le 18 juin 2026 ← URGENT**)
+- Token GitHub : `ghp_REDACTED_EXPIRES_23_AUG_2026` (**expire le 18 juin 2026 ← URGENT**)
 - **3 onglets** :
   - **📊 Signaux** : tableau principal, 100 tokens uniques, Note Live recalculée, filtres, décisions ⚡/👁/Passer, colonne BP% (Birdeye buy pressure, vert/orange/rouge)
   - **🎯 G1 Tracker** : connecté au webhook n8n `/webhook/g1-data` — toggle "Masquer expirés" (actif par défaut), stats excluent les EXPIRED, affichage "N entrées — M expirés cachés"
@@ -756,8 +756,8 @@ CREATE TABLE IF NOT EXISTS pending_checks (
 
 ### 🔜 Prochaines étapes
 
-**🚨 URGENT — Renouvellement token GitHub** (avant le **18 juin 2026** — dans ~24 jours)
-- Token `ghp_REDACTED_RENOUVELER_AVANT_18_JUIN_2026` expire le 18 juin 2026
+~~**Token GitHub renouvelé**~~ ✅ — nouveau token `sigma-dashboard-v2` expire **23 août 2026**
+- Token `ghp_REDACTED_EXPIRES_23_AUG_2026` expire le 18 juin 2026
 - GitHub → Settings → Developer settings → Personal access tokens (classic) → Generate new → scope `repo`
 - Mettre à jour `contexte.md`
 
@@ -1626,7 +1626,7 @@ fetch('/api/v1/executions/1605?includeData=true', {
 ```javascript
 // Encoder et pousser index.html modifié
 (async function() {
-  var token = 'ghp_REDACTED_RENOUVELER_AVANT_18_JUIN_2026';
+  var token = 'ghp_REDACTED_EXPIRES_23_AUG_2026';
   
   // 1. Récupérer SHA actuel
   var r = await fetch('https://api.github.com/repos/bliss46/sigma-signals-dashboard/contents/index.html', {
@@ -1712,7 +1712,7 @@ var cols = json.table.cols.map(c => (c.label||'').toLowerCase().replace(/\s+/g,'
 ### GitHub
 - Compte : bliss46
 - Repo dashboard : https://github.com/bliss46/sigma-signals-dashboard
-- Token PAT : `ghp_REDACTED_RENOUVELER_AVANT_18_JUIN_2026` (**expire 18 juin 2026**)
+- Token PAT : `ghp_REDACTED_EXPIRES_23_AUG_2026` (**expire 18 juin 2026**)
 - Scopes nécessaires : `repo` (read + write)
 
 ### Vercel
