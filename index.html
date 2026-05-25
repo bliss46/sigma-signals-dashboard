@@ -252,6 +252,7 @@ tr:hover td { background: var(--bg1); }
         <th onclick="sortBy('ch24h')">Δ24h <span class="sort-arrow">↕</span></th>
         <th onclick="sortBy('liq')">Liq Live <span class="sort-arrow">↕</span></th>
         <th onclick="sortBy('buy_ratio')">BuyRatio <span class="sort-arrow">↕</span></th>
+        <th onclick="sortBy('bp')">BP% <span class="sort-arrow">↕</span></th>
         <th>Décision</th>
         <th>DEX</th>
       </tr>
@@ -290,8 +291,14 @@ tr:hover td { background: var(--bg1); }
   </div>
 </div>
 
-<div style="padding: 0 20px 8px; display:flex; align-items:center; gap:12px;">
+<div style="padding: 0 20px 8px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
   <button class="refresh-btn" onclick="loadG1()">↻ Refresh</button>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;">
+    <input type="checkbox" id="g1-hide-expired" checked onchange="renderG1(window._g1LastChecks||[])"
+      style="cursor:pointer;accent-color:var(--pump);">
+    Masquer expirés
+  </label>
+  <span id="g1-expired-count" style="font-size:11px;color:var(--muted);"></span>
   <span id="g1-error" style="display:none; color:var(--dump); font-size:11px;"></span>
 </div>
 
@@ -558,6 +565,7 @@ function renderTable() {
       if(av==null&&bv==null)return 0; if(av==null)return 1; if(bv==null)return -1;
     }
     else if (sortCol === 'buy_ratio') { av = parseFloat(a.buy_ratio)||0; bv = parseFloat(b.buy_ratio)||0; }
+    else if (sortCol === 'bp') { av = a.buy_pressure_be != null ? parseFloat(a.buy_pressure_be) : -1; bv = b.buy_pressure_be != null ? parseFloat(b.buy_pressure_be) : -1; }
     else { av = 0; bv = 0; }
     return sortDir * ((av > bv ? 1 : av < bv ? -1 : 0));
   });
@@ -601,6 +609,10 @@ function renderTable() {
     var dexUrl = s.dex_url || ('https://dexscreener.com/solana/' + (s.address||''));
     var dexHtml = '<a class="dex-link" href="' + dexUrl + '" target="_blank">↗</a>';
     var decHtml = decision(nl, live ? live.liq : null);
+    var bpVal = s.buy_pressure_be != null ? parseFloat(s.buy_pressure_be) : null;
+    var bpHtml = bpVal != null
+      ? '<span class="' + (bpVal > 65 ? 'liq-green' : bpVal < 40 ? 'liq-red' : 'liq-yellow') + '" title="Birdeye buy pressure (volume $)">' + bpVal + '%</span>'
+      : '<span class="ch-neu" title="Non disponible">—</span>';
     html += '<tr>' +
       '<td>' + tokenHtml + '</td>' +
       '<td>' + srcHtml + '</td>' +
@@ -611,6 +623,7 @@ function renderTable() {
       '<td>' + ch24hHtml + '</td>' +
       '<td>' + liqHtml + '</td>' +
       '<td>' + brHtml + '</td>' +
+      '<td>' + bpHtml + '</td>' +
       '<td>' + decHtml + '</td>' +
       '<td>' + dexHtml + '</td>' +
     '</tr>';
@@ -621,7 +634,7 @@ function renderTable() {
     var arrow = th.querySelector('.sort-arrow');
     if (arrow) arrow.textContent = '↕';
   });
-  var cols = ['symbol','source','note_live','detected','age','ch1h','ch24h','liq','buy_ratio'];
+  var cols = ['symbol','source','note_live','detected','age','ch1h','ch24h','liq','buy_ratio','bp'];
   var idx = cols.indexOf(sortCol);
   if (idx > -1) {
     var ths = document.querySelectorAll('#tab-signals th');
@@ -823,7 +836,8 @@ function loadG1() {
       var n = new Date();
       document.getElementById('g1-w-upd').textContent =
         ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
-      renderG1(data.checks || []);
+      window._g1LastChecks = data.checks || [];
+      renderG1(window._g1LastChecks);
     })
     .catch(function(err) {
       document.getElementById('g1-spin').style.display = 'none';
@@ -834,16 +848,32 @@ function loadG1() {
 }
 
 function renderG1(checks) {
-  document.getElementById('g1-w-total').textContent = checks.length;
-  var pos = checks.filter(function(c){ return c.change_pct != null && c.change_pct > 0; }).length;
-  var tps = checks.filter(function(c){ return c.outcome_live === 'TP1_HIT' || c.outcome_live === 'TP2_HIT'; }).length;
+  // Filtre EXPIRED selon le toggle
+  var expiredCnt = checks.filter(function(c){ return (c.outcome_live||c.outcome) === 'EXPIRED'; }).length;
+  var cntEl = document.getElementById('g1-expired-count');
+  if (cntEl) cntEl.textContent = expiredCnt > 0 ? '(' + expiredCnt + ' expir\u00e9' + (expiredCnt > 1 ? 's' : '') + ' cach\u00e9' + (expiredCnt > 1 ? 's' : '') + ')' : '';
+
+  var hideChk = document.getElementById('g1-hide-expired');
+  var filtered = (hideChk && hideChk.checked)
+    ? checks.filter(function(c){ return (c.outcome_live||c.outcome) !== 'EXPIRED'; })
+    : checks;
+
+  // Stats : uniquement les non-expir\u00e9s
+  var active = checks.filter(function(c){ return (c.outcome_live||c.outcome) !== 'EXPIRED'; });
+  document.getElementById('g1-w-total').textContent = active.length;
+  var pos = active.filter(function(c){ return c.change_pct != null && c.change_pct > 0; }).length;
+  var tps = active.filter(function(c){ return c.outcome_live === 'TP1_HIT' || c.outcome_live === 'TP2_HIT'; }).length;
   document.getElementById('g1-w-pos').textContent = pos;
   document.getElementById('g1-w-tp').textContent = tps;
-  document.getElementById('g1-count').textContent = checks.length + ' entr\u00e9e' + (checks.length !== 1 ? 's' : '');
+  document.getElementById('g1-count').textContent = filtered.length + ' entr\u00e9e' + (filtered.length !== 1 ? 's' : '')
+    + (expiredCnt > 0 && hideChk && hideChk.checked ? ' \u2014 ' + expiredCnt + ' expir\u00e9' + (expiredCnt > 1 ? 's' : '') + ' cach\u00e9' + (expiredCnt > 1 ? 's' : '') : '');
+
+  // Travailler sur la liste filtr\u00e9e
+  checks = filtered;
 
   if (!checks.length) {
     document.getElementById('g1-tbody').innerHTML =
-      '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px">Aucun TOP PICK en cours de suivi</td></tr>';
+      '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px">Aucun TOP PICK actif</td></tr>';
     return;
   }
 
