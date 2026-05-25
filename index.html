@@ -565,7 +565,7 @@ function renderTable() {
       if(av==null&&bv==null)return 0; if(av==null)return 1; if(bv==null)return -1;
     }
     else if (sortCol === 'buy_ratio') { av = parseFloat(a.buy_ratio)||0; bv = parseFloat(b.buy_ratio)||0; }
-    else if (sortCol === 'bp') { av = a.buy_pressure_be != null ? parseFloat(a.buy_pressure_be) : -1; bv = b.buy_pressure_be != null ? parseFloat(b.buy_pressure_be) : -1; }
+    else if (sortCol === 'bp') { av = (a.buy_pressure_be !== '' && a.buy_pressure_be != null) ? (parseFloat(a.buy_pressure_be)||0) : -1; bv = (b.buy_pressure_be !== '' && b.buy_pressure_be != null) ? (parseFloat(b.buy_pressure_be)||0) : -1; }
     else { av = 0; bv = 0; }
     return sortDir * ((av > bv ? 1 : av < bv ? -1 : 0));
   });
@@ -609,7 +609,9 @@ function renderTable() {
     var dexUrl = s.dex_url || ('https://dexscreener.com/solana/' + (s.address||''));
     var dexHtml = '<a class="dex-link" href="' + dexUrl + '" target="_blank">↗</a>';
     var decHtml = decision(nl, live ? live.liq : null);
-    var bpVal = s.buy_pressure_be != null ? parseFloat(s.buy_pressure_be) : null;
+    var bpRaw = s.buy_pressure_be;
+    var bpVal = (bpRaw !== null && bpRaw !== '' && bpRaw !== undefined) ? parseFloat(bpRaw) : null;
+    if (bpVal !== null && isNaN(bpVal)) bpVal = null;
     var bpHtml = bpVal != null
       ? '<span class="' + (bpVal > 65 ? 'liq-green' : bpVal < 40 ? 'liq-red' : 'liq-yellow') + '" title="Birdeye buy pressure (volume $)">' + bpVal + '%</span>'
       : '<span class="ch-neu" title="Non disponible">—</span>';
