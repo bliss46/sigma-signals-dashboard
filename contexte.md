@@ -1,7 +1,7 @@
 # 📋 Contexte — Projet Sigma Signals
 
-**Dernière mise à jour** : 25 mai 2026 — session 2 (dashboard v3.2 : G1 filtre EXPIRED + colonne BP% + alertes Telegram intelligentes + E1 dual-source)
-**Statut** : ✅ **Pipeline v3.2 en production** — Workflows 02 (2h) + C1 (15min) + D1 (5min) + B1 (solde USDT) + G1 (TP/SL tracker) + E1 (Early proxy 5min) actifs — Dashboard Vercel **v3.2** live (3 onglets : Signaux + G1 Tracker connecté + Early <30min) — Enrichissement Birdeye actif — Note Live recalculée en temps réel
+**Dernière mise à jour** : 25 mai 2026 (session — G1 Tracker connecté webhook + onglet Early <30min + E1 proxy n8n + nettoyage pending_checks + fix expiration automatique)
+**Statut** : ✅ **Pipeline v3.1 en production** — Workflows 02 (2h) + C1 (15min) + D1 (5min) + B1 (solde USDT) + G1 (TP/SL tracker) + E1 (Early proxy 5min) actifs — Dashboard Vercel **v3.1** live (3 onglets : Signaux + G1 Tracker connecté + Early <30min) — Enrichissement Birdeye actif — Note Live recalculée en temps réel
 **Sessions précédentes** :
 - 14 mai 2026 : setup initial + pipeline v1.0 (paliers 1-5 complets)
 - 15 mai 2026 : A1 Déduplication + A2 GoPlus Security → pipeline v1.2
@@ -22,7 +22,6 @@
 - 22 mai 2026 (après-midi/soir) : intégration Birdeye BDS (free tier 30k CU/mois) — enrichissement be_buy_pressure + be_unique_wallets dans 02/C1/D1 — circuit breaker `birdeye_quota` Postgres (500 appels/jour) — prompts Claude v2.8 (règles scoring Birdeye) — colonne buy_pressure_be dans Sheet — fix dashboard : DÉTECTÉ fallback l1, NaNj→— Suivi G1, labels complets graphique Sources, padding coche déduplication → **dashboard v2.8 + pipeline v2.8**
 - 22 mai 2026 (soir) : fix bug critique Birdeye/prompt (candidates vides → $('Enrich Birdeye data').first().json.candidates dans 02+C1) + fix dashboard âge fallback l1 (v2.9) + **refonte dashboard v3.0 Live Scoring** (Note Live recalculée temps réel, dédup par défaut, Δ1h/Δ24h live, décisions actionnables) → **dashboard v3.0**
 - 25 mai 2026 : onglet Early (<30min) via proxy n8n E1 (DexScreener token-profiles/latest, filtre Solana <30min liq≥5k$) + G1 Tracker connecté au webhook n8n (pending_checks + prix live DexScreener) + nettoyage pending_checks expirées + fix expiration automatique (parsing horizon "24h" → 24h) → **dashboard v3.1 + pipeline v3.1**
-- 25 mai 2026 (session 2) : dashboard v3.2 — G1 filtre EXPIRED (toggle + stats corrigées) + colonne BP% (Birdeye, rouge/orange/vert, tri) + alertes Telegram intelligentes (préfixe ⚠️ si DUMP/MOMENTUM NEG dans 02/C1/D1) + E1 dual-source (token-profiles + search) + cache 25min → **dashboard v3.2 + pipeline v3.2**
 
 ---
 
@@ -213,10 +212,10 @@ L'idée n'est PAS d'automatiser le trading lui-même (Sigma n'a pas d'API publiq
 - Projet Vercel : `prj_D0z1kDLUj438HvVTi2LcTkzkZAK2`, team `team_5mp46qxS8H1vJoliKx6HciIN`
 - Fichier principal : `index.html` (ES5 pur, pas de framework)
 - Déploiement : automatique sur push `main` via intégration GitHub
-- Token GitHub : `ghp_REDACTED_EXPIRES_23_AUG_2026` (**expire le 18 juin 2026 ← URGENT**)
+- Token GitHub : `ghp_[sigma-dashboard-v2 — voir dans tes notes, expire 23 août 2026]` (**expire le 23 août 2026**)
 - **3 onglets** :
-  - **📊 Signaux** : tableau principal, 100 tokens uniques, Note Live recalculée, filtres, décisions ⚡/👁/Passer, colonne BP% (Birdeye buy pressure, vert/orange/rouge)
-  - **🎯 G1 Tracker** : connecté au webhook n8n `/webhook/g1-data` — toggle "Masquer expirés" (actif par défaut), stats excluent les EXPIRED, affichage "N entrées — M expirés cachés"
+  - **📊 Signaux** : tableau principal, 100 tokens uniques, Note Live recalculée, filtres, décisions ⚡/👁/Passer
+  - **🎯 G1 Tracker** : connecté au webhook n8n `/webhook/g1-data` — affiche les TOP PICK avec prix entrée, prix actuel live, variation%, liq live, outcome
   - **🌱 Early (<30min)** : connecté au webhook n8n `/webhook/prelaunch-data` — paires Solana < 30min, liq ≥ 5k$, fraîcheur visuelle, buy ratio, vol 5min, DEX badge
 
 ### Logique Note Live — calcNoteLive() dans dashboard v3.0+
@@ -462,7 +461,7 @@ Cette regex supprime : les blocs ```json...``` (Haiku non-déterministe), les bl
 | D1 - Early Pairs Scanner | `/workflow/u5VGZgEuXP2kmnTX` | ✅ Active | v2.8 | 5min |
 | B1 - Binance Balance Tracker | `/workflow/REIu6NbBIOuBMzjN` | ✅ Active | v2.5 | 30min |
 | G1 - Price Tracker / TP-SL Monitor | `/workflow/rqw0acOpxTmYB7wE` | ✅ Active | v3.1 | 1h |
-| E1 - Early Pairs Proxy (DexScreener <30min) | `/workflow/EJYdWQvX6F7R3uGc` | ✅ Active | v1.1 | 5min |
+| E1 - Early Pairs Proxy (DexScreener <30min) | `/workflow/EJYdWQvX6F7R3uGc` | ✅ Active | v1.0 | 5min |
 
 ---
 
@@ -690,22 +689,6 @@ CREATE TABLE IF NOT EXISTS pending_checks (
     - Utilisé dans E1 "Process and filter" pour le batch DexScreener depuis le Code node
     - Retourne directement le JSON parsé (pas besoin de `.json()`)
 
-79. **Expression Telegram avec détection dump — structure IIFE** ✅ **25 mai session 2**
-    - L'expression n8n du node Telegram peut contenir une IIFE `(function(){ ... })()`  pour la logique conditionnelle
-    - Syntaxe : `={{ (function(){ var raw = $json.content[0].text; ... return result; })() }}`
-    - Permet de préfixer ⚠️ si le texte Claude contient DUMP POST-PUMP, MOMENTUM NEG ou EN BAISSE
-    - Appliqué sur 02 (1 node Telegram), C1 (1 node), D1 (1 node) — chacun avait exactement 1 node Telegram avec `content[0].text`
-    - **Note** : workflow 02 avait 3 nodes Telegram (skipped + normal + autre), le filtre `content[0].text` a correctement ciblé uniquement les nodes principaux
-
-80. **E1 Early dual-source — /latest/dex/search vs /token-profiles/latest/v1** ⚠️ **25 mai session 2**
-    - `/latest/dex/pairs/solana` → 404 HTML (n'existe pas)
-    - `/latest/dex/search?q=solana` → 30 paires populaires, rarement < 30min
-    - `/token-profiles/latest/v1` → profils récents, nécessite batch `/tokens/v1/solana/`
-    - Aucun endpoint DexScreener public ne retourne fiablement des paires Solana < 30min en permanence
-    - **Fix** : Code E1 dual-format (détecte tableau = token-profiles, objet avec pairs = search) + cache 25min au lieu de 10min
-    - L'onglet Early affichera 0 résultats entre les pics d'activité Solana — c'est normal
-
-
 ---
 
 ## 🗺️ Roadmap
@@ -749,28 +732,34 @@ CREATE TABLE IF NOT EXISTS pending_checks (
 - **E1 Early Proxy** : workflow n8n proxy DexScreener <30min → prelaunch_cache → webhook ✅ (25 mai)
 - **G1 Tracker connecté** : webhook `/webhook/g1-data` → pending_checks + prix live + outcome_live ✅ (25 mai)
 - **Dashboard v3.1** : onglet G1 Tracker live + onglet Early (<30min) fonctionnel ✅ (25 mai)
-- **Dashboard v3.2** : G1 toggle EXPIRED (masqué par défaut, stats corrigées) + colonne BP% (vert/orange/rouge, NaN guard, triable) ✅ (25 mai session 2)
-- **Alertes Telegram intelligentes** : préfixe ⚠️ si dump dans 02/C1/D1 ✅ (25 mai session 2)
-- **E1 v1.1** : Code dual-source + cache 25min ✅ (25 mai session 2)
 - **Fix pending_checks expirées** : nettoyage manuel + fix auto expiration par âge (parsing horizon string) ✅ (25 mai)
 
 ### 🔜 Prochaines étapes
 
-~~**Token GitHub renouvelé**~~ ✅ — nouveau token `sigma-dashboard-v2` expire **23 août 2026**
-- Token `ghp_REDACTED_EXPIRES_23_AUG_2026` expire le 18 juin 2026
+**🚨 URGENT — Renouvellement token GitHub** (avant le **18 juin 2026**)
+- Token `ghp_[sigma-dashboard-v2 — voir dans tes notes, expire 23 août 2026]` expire le 23 août 2026
 - GitHub → Settings → Developer settings → Personal access tokens (classic) → Generate new → scope `repo`
 - Mettre à jour `contexte.md`
 
-~~**Priorité haute — Masquer les entrées EXPIRED dans G1 Tracker**~~ ✅ FAIT (v3.2 — toggle + stats corrigées)
+**Priorité haute — Masquer les entrées EXPIRED dans G1 Tracker**
+- Les entrées avec `outcome_live = 'EXPIRED'` s'affichent encore dans le tableau
+- Ajouter un filtre dans `renderG1()` : `checks.filter(c => c.outcome_live !== 'EXPIRED')`
+- Ou ajouter un toggle "Afficher expirés" pour garder l'historique optionnel
 
 **Priorité haute — Calibration Note Live**
 - Observer sur quelques jours si les décisions ⚡/👁/Passer sont cohérentes avec les charts réels
 - Ajuster les seuils (note min ACHETER, liq min) selon les observations
 - Possibilité d'ajouter un slider "Liq min ACHETER" dans les contrôles
 
-~~**Priorité moyenne — Colonne buy_pressure_be dans le tableau dashboard**~~ ✅ FAIT (v3.2 — colonne BP% triable, NaN guard)
+**Priorité moyenne — Colonne buy_pressure_be dans le tableau dashboard**
+- La Note Live utilise déjà `be_buy_pressure` du sheet si disponible
+- Ajouter une colonne "BP%" visible (rouge < 40% / orange 40-65% / vert > 65%)
+- Vérifier que la colonne N du Sheet se remplit bien
 
-~~**Priorité moyenne — Alertes Telegram intelligentes**~~ ✅ FAIT (v3.2 — expression Telegram avec préfixe ⚠️ si DUMP/MOMENTUM NEG détecté dans le texte Claude)
+**Priorité moyenne — Alertes Telegram intelligentes**
+- Avant d'envoyer le Telegram dans 02/C1/D1 : mini-check DexScreener sur change_1h
+- Si change_1h < -20% au moment de l'envoi → ne pas envoyer ou ajouter ⚠️ DUMP EN COURS
+- Évite les alertes pour des tokens déjà en dump entre le scan GoPlus et l'envoi
 
 **Priorité basse — Améliorer E1 Early (<30min)**
 - L'endpoint `/token-profiles/latest/v1` ne retourne pas toujours des paires Solana <30min
@@ -1626,7 +1615,7 @@ fetch('/api/v1/executions/1605?includeData=true', {
 ```javascript
 // Encoder et pousser index.html modifié
 (async function() {
-  var token = 'ghp_REDACTED_EXPIRES_23_AUG_2026';
+  var token = 'ghp_[sigma-dashboard-v2 — voir dans tes notes, expire 23 août 2026]';
   
   // 1. Récupérer SHA actuel
   var r = await fetch('https://api.github.com/repos/bliss46/sigma-signals-dashboard/contents/index.html', {
@@ -1712,7 +1701,7 @@ var cols = json.table.cols.map(c => (c.label||'').toLowerCase().replace(/\s+/g,'
 ### GitHub
 - Compte : bliss46
 - Repo dashboard : https://github.com/bliss46/sigma-signals-dashboard
-- Token PAT : `ghp_REDACTED_EXPIRES_23_AUG_2026` (**expire 18 juin 2026**)
+- Token PAT : `ghp_[sigma-dashboard-v2 — voir dans tes notes, expire 23 août 2026]` (**expire 23 août 2026**)
 - Scopes nécessaires : `repo` (read + write)
 
 ### Vercel
