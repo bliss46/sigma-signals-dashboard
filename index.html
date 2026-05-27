@@ -456,8 +456,8 @@ function calcNoteLive(signal, live) {
   var note  = base;
   var badge = null;
   if (ch24h !== null && ch1h !== null && ch24h > 200 && ch1h < -20) { note = Math.min(note, 3); badge = 'DUMP POST-PUMP'; }
-  else if (ch1h !== null && ch1h < -30) { note = Math.max(0, note - 2); badge = 'MOMENTUM NEG'; }
-  else if (ch1h !== null && ch1h < -20) { note = Math.max(0, note - 1); badge = 'EN BAISSE'; }
+  else if (ch1h !== null && ch1h < -20) { note = Math.max(0, note - 2); badge = 'MOMENTUM NEG'; }
+  else if (ch1h !== null && ch1h < -10) { note = Math.max(0, note - 1); badge = 'EN BAISSE'; }
   else if (ch24h !== null && ch24h > 500) { note = Math.max(0, note - 3); note = Math.min(note, 5); badge = 'PUMP AVANCÉ'; }
   else if (ch24h !== null && ch24h > 300) { note = Math.max(0, note - 2); badge = 'PUMP'; }
   else if (ch1h !== null && ch1h > 50) { note = Math.min(note, 7); badge = 'PUMP 1H'; }
