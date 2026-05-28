@@ -633,7 +633,7 @@ function renderTable() {
     html += '<tr>' +
       '<td>' + tokenHtml + '</td>' +
       '<td>' + srcHtml + '</td>' +
-      '<td>' + (live ? noteHtml : '<span class="ch-neu"><span class="spin"></span></span>') + '</td>' +
+      '<td>' + (live ? noteHtml : (window._liveDone ? '<span class="ch-neu" title="Prix indisponible (token inactif)">—</span>' : '<span class="ch-neu"><span class="spin"></span></span>')) + '</td>' +
       '<td>' + relTime(ts) + '</td>' +
       '<td>' + ageStr(s.age_minutes, ts) + '</td>' +
       '<td>' + ch1hHtml + '</td>' +
@@ -720,7 +720,7 @@ function fetchAndRender() {
   var tokens = window._dedupBase || [];
   document.getElementById('w-lastupd').textContent = '…';
   fetchLive(tokens, function(results) {
-    liveData = results;
+    liveData = results; window._liveDone = true;
     var n = new Date();
     document.getElementById('w-lastupd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
     document.getElementById('w-fetched').textContent = Object.keys(results).length + ' tokens fetchés';
