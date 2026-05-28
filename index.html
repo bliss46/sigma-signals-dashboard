@@ -678,38 +678,40 @@ function setFilter(btn) {
 
 // ── LOAD SHEET ──
 function loadData(id) {
-  var url = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json';
-  fetch(url).then(function(r){ return r.text(); })
-    .then(function(t) {
-      var json = JSON.parse(t.slice(t.indexOf('(')+1, -2));
-      var cols = json.table.cols.map(function(c){ return (c.label||'').toLowerCase().replace(/\s+/g,'_'); });
-      allSignals = [];
-      (json.table.rows || []).forEach(function(row) {
-        if (!row || !row.c) return;
-        var obj = {};
-        cols.forEach(function(col, i) {
-          obj[col] = row.c[i] ? (row.c[i].v !== null && row.c[i].v !== undefined ? row.c[i].v : '') : '';
-        });
-        obj.timestamp = obj.timestamp || null;
-        obj.l1 = obj.l1 || null;
-        if (obj.symbol && String(obj.symbol).trim()) allSignals.push(obj);
-      });
-      var deduped = dedup(allSignals);
-      deduped.sort(function(a,b){
-        var ta = a.timestamp||a.l1, tb = b.timestamp||b.l1;
-        if (!ta && !tb) return 0; if (!ta) return 1; if (!tb) return -1;
-        return new Date(tb).getTime() - new Date(ta).getTime();
-      });
-      window._dedupBase = deduped.slice(0, 100);
-      document.getElementById('w-total').textContent = allSignals.length;
-      document.getElementById('w-unique').textContent = deduped.length + ' tokens uniques';
-      document.getElementById('loading').style.display = 'none';
-      renderTable();
-      fetchAndRender();
-    })
-    .catch(function(e){ document.getElementById('loading').innerHTML = '⚠️ Erreur chargement sheet: ' + e.message; });
+  var url = 'https://n8n-production-05f0.up.railway.app/webhook/signals-data';
+  fetch(url).then(function(r){ return r.json(); })
+  .then(function(data) {
+    allSignals = [];
+    var rows = (data && data.signals) ? data.signals : [];
+    rows.forEach(function(s) {
+      if (!s || !s.symbol) return;
+      var src = s.source === '2' ? '02' : (s.source || '');
+      var obj = {
+        timestamp: s.timestamp || null,
+        l1: s.timestamp || null,
+        symbol: s.symbol || '',
+        name: s.name || '',
+        address: s.address || '',
+        note_claude: s.note_claude != null ? s.note_claude : '',
+        is_top_pick: s.is_top_pick || 'NON',
+        price_usd: s.price_usd != null ? s.price_usd : '',
+        change_24h: s.change_24h != null ? s.change_24h : '',
+        dex_url: s.dex_url || '',
+        buy_ratio: s.buy_ratio != null ? s.buy_ratio : '',
+        vol_liq: s.vol_liq != null ? s.vol_liq : '',
+        age_minutes: s.age_minutes != null ? s.age_minutes : '',
+        source: src,
+        buy_pressure_be: s.buy_pressure_be != null ? s.buy_pressure_be : ''
+      };
+      if (String(obj.symbol).trim()) allSignals.push(obj);
+    });
+    var deduped = dedup(allSignals);
+    deduped.sort(function(a,b){ var ta = new Date(a.timestamp||a.l1||0).getTime(); var tb = new Date(b.timestamp||b.l1||0).getTime(); return tb - ta; });
+    allSignals = deduped;
+    renderTable();
+    fetchAndRender();
+  }).catch(function(e){ console.error('loadData signals-data error', e); });
 }
-
 function fetchAndRender() {
   var tokens = window._dedupBase || [];
   document.getElementById('w-lastupd').textContent = '…';
