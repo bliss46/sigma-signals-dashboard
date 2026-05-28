@@ -709,6 +709,8 @@ function loadData(id) {
     deduped.sort(function(a,b){ var ta = new Date(a.timestamp||a.l1||0).getTime(); var tb = new Date(b.timestamp||b.l1||0).getTime(); return tb - ta; });
     allSignals = deduped;
     window._dedupBase = deduped;
+    var totalEl=document.getElementById('w-total'); if(totalEl) totalEl.textContent=allSignals.length;
+    var uniqEl=document.getElementById('w-unique'); if(uniqEl) uniqEl.textContent=deduped.length+' tokens uniques';
     var ld = document.getElementById('loading'); if (ld) ld.style.display = 'none';
     renderTable();
     fetchAndRender();
