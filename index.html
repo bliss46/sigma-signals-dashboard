@@ -708,9 +708,11 @@ function loadData(id) {
     var deduped = dedup(allSignals);
     deduped.sort(function(a,b){ var ta = new Date(a.timestamp||a.l1||0).getTime(); var tb = new Date(b.timestamp||b.l1||0).getTime(); return tb - ta; });
     allSignals = deduped;
+    window._dedupBase = deduped;
+    var ld = document.getElementById('loading'); if (ld) ld.style.display = 'none';
     renderTable();
     fetchAndRender();
-  }).catch(function(e){ console.error('loadData signals-data error', e); });
+  }).catch(function(e){ console.error('loadData signals-data error', e); var ld = document.getElementById('loading'); if (ld) ld.textContent = 'Erreur de chargement'; });
 }
 function fetchAndRender() {
   var tokens = window._dedupBase || [];
