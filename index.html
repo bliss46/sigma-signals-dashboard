@@ -403,7 +403,7 @@ tr:hover td { background: var(--bg1); }
 var SHEET_ID = '1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
 var allSignals = [];
 var liveData = {};
-var sortCol = 'note_live', sortDir = -1;
+var sortCol = 'age', sortDir = 1;
 var filterSrc = 'ALL';
 var plTokens = []; // raw pump.fun data
 var activeTab = 'signals';
@@ -956,8 +956,8 @@ function renderG1(checks) {
 }
 
 // ── AUTO-REFRESH ──
-setInterval(fetchAndRender, 5 * 60 * 1000);
-setInterval(forceRefresh, 15 * 60 * 1000);
+setInterval(forceRefresh, 30 * 1000);
+// full refresh merged into 30s interval above
 // Pre-launch refresh every 5 min only when tab is active
 setInterval(function(){ if (activeTab === 'prelaunch') loadPrelaunch(); }, 5 * 60 * 1000);
 
