@@ -56,6 +56,21 @@ body { background: var(--bg0); color: var(--text); font-family: 'SF Mono', 'Fira
 .control-group label { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .filter-btn { background: var(--bg2); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
 .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.buy-btn { background: #16a34a; border: none; color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
+.buy-btn:hover { background: #15803d; }
+.buy-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.buy-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 300px; max-width: 90vw; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+.buy-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.buy-addr { font-size: 11px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
+.buy-label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 4px; }
+.buy-input { width: 100%; box-sizing: border-box; background: var(--bg0); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; }
+.buy-status { min-height: 16px; font-size: 12px; margin-top: 10px; color: var(--muted); }
+.buy-status.ok { color: #16a34a; }
+.buy-status.err { color: #ef4444; }
+.buy-actions { display: flex; gap: 8px; margin-top: 16px; }
+.buy-cancel { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 8px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; }
+.buy-confirm { flex: 2; background: #16a34a; border: none; color: #fff; padding: 8px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; }
+.buy-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 input[type=range] { width: 80px; accent-color: var(--accent); }
 .range-val { font-size: 11px; color: var(--text); min-width: 24px; }
 .search-input { background: var(--bg2); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-family: inherit; width: 120px; }
@@ -255,6 +270,7 @@ tr:hover td { background: var(--bg1); }
         <th onclick="sortBy('bp')">BP% <span class="sort-arrow">↕</span></th>
         <th onclick="sortBy('decision')" style="cursor:pointer">Décision <span class="sort-arrow">↕</span></th>
         <th>DEX</th>
+        <th>Achat</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -518,6 +534,15 @@ function fetchLive(tokens, cb) {
 }
 
 // ── RENDER SIGNALS TABLE ──
+var BUY_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/buy';
+
+function buyBtnHtml(s){
+  var addr = s.address || '';
+  if(!addr) return '<span class="ch-neu">—</span>';
+  var sym = String(s.symbol||'?').replace(/['"\\<>]/g,'');
+  return '<button class="buy-btn" onclick="openBuy(&#39;'+addr+'&#39;,&#39;'+sym+'&#39;)">Acheter</button>';
+}
+
 function renderTable() {
   var noteMin  = parseInt(document.getElementById('sl-note').value) || 0;
   var liqMin   = (parseInt(document.getElementById('sl-liq').value) || 0) * 1000;
@@ -643,6 +668,7 @@ function renderTable() {
       '<td>' + bpHtml + '</td>' +
       '<td>' + decHtml + '</td>' +
       '<td>' + dexHtml + '</td>' +
+      '<td>' + buyBtnHtml(s) + '</td>' +
     '</tr>';
   });
   document.getElementById('tbody').innerHTML = html;
@@ -955,6 +981,54 @@ function renderG1(checks) {
   document.getElementById('g1-tbody').innerHTML = html;
 }
 
+// ── ACHAT (bouton dashboard → webhook n8n /buy) ──
+var _buyCtx = { mint: '', sym: '' };
+function openBuy(mint, sym){
+  _buyCtx = { mint: mint, sym: sym };
+  document.getElementById('buy-sym').textContent = sym;
+  document.getElementById('buy-mint').textContent = mint.slice(0,4) + '…' + mint.slice(-4);
+  document.getElementById('buy-sol').value = '0.03';
+  document.getElementById('buy-pin').value = '';
+  var st = document.getElementById('buy-status'); st.textContent = ''; st.className = 'buy-status';
+  document.getElementById('buy-confirm').disabled = false;
+  document.getElementById('buy-modal').style.display = 'flex';
+  document.getElementById('buy-pin').focus();
+}
+function closeBuy(){ document.getElementById('buy-modal').style.display = 'none'; }
+function confirmBuy(){
+  var sol = parseFloat(document.getElementById('buy-sol').value);
+  var pin = document.getElementById('buy-pin').value;
+  var st = document.getElementById('buy-status');
+  if(!(sol > 0)){ st.textContent = 'Montant invalide'; st.className = 'buy-status err'; return; }
+  if(sol > 0.1){ st.textContent = 'Plafond 0.1 SOL'; st.className = 'buy-status err'; return; }
+  if(!pin){ st.textContent = 'PIN requis'; st.className = 'buy-status err'; return; }
+  var btn = document.getElementById('buy-confirm');
+  btn.disabled = true;
+  st.textContent = 'Envoi en cours…'; st.className = 'buy-status';
+  fetch(BUY_WEBHOOK, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mint: _buyCtx.mint, sol: sol, pin: pin })
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j }; }).catch(function(){ return { status: r.status, j: null }; }); })
+  .then(function(res){
+    if(res.j && res.j.ok){
+      st.textContent = '✅ Achat envoyé (position #' + (res.j.positionId || '?') + ')';
+      st.className = 'buy-status ok';
+      setTimeout(closeBuy, 2500);
+    } else {
+      st.textContent = '❌ ' + ((res.j && res.j.error) || ('Erreur ' + res.status));
+      st.className = 'buy-status err';
+      btn.disabled = false;
+    }
+  })
+  .catch(function(e){
+    st.textContent = '❌ Réseau: ' + e.message;
+    st.className = 'buy-status err';
+    btn.disabled = false;
+  });
+}
+
 // ── AUTO-REFRESH ──
 setInterval(forceRefresh, 30 * 1000);
 // full refresh merged into 30s interval above
@@ -967,5 +1041,20 @@ window.onload = function() {
   loadG1();
 };
 </script>
+<div id="buy-modal" class="buy-overlay" style="display:none">
+  <div class="buy-box">
+    <div class="buy-title">Acheter <span id="buy-sym">?</span></div>
+    <div class="buy-addr"><span id="buy-mint">—</span></div>
+    <label class="buy-label">Montant (SOL) — max 0.1</label>
+    <input id="buy-sol" class="buy-input" type="number" step="0.01" min="0.001" max="0.1" value="0.03">
+    <label class="buy-label">PIN</label>
+    <input id="buy-pin" class="buy-input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••••">
+    <div id="buy-status" class="buy-status"></div>
+    <div class="buy-actions">
+      <button class="buy-cancel" onclick="closeBuy()">Annuler</button>
+      <button id="buy-confirm" class="buy-confirm" onclick="confirmBuy()">Confirmer l'achat</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
