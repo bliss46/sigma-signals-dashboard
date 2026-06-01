@@ -196,6 +196,7 @@ tr:hover td { background: var(--bg1); }
   <button class="tab-btn active" onclick="switchTab('signals', this)">📊 Signaux</button>
   <button class="tab-btn" onclick="switchTab('g1', this)">🎯 G1 Tracker</button>
   <button class="tab-btn" onclick="switchTab('prelaunch', this)" id="tab-prelaunch-btn">🌱 Early (&lt;30min)</button>
+  <button class="tab-btn" onclick="switchTab('positions', this)">💰 Positions</button>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -415,6 +416,36 @@ tr:hover td { background: var(--bg1); }
 
 </div><!-- /tab-prelaunch -->
 
+<div id="tab-positions" class="tab-content">
+  <div class="controls" style="margin-bottom:10px">
+    <button class="refresh-btn" onclick="loadPositions()">↻ Refresh</button>
+    <span id="pos-w-upd" class="clock"></span>
+  </div>
+  <div id="pos-error" class="pl-error" style="display:none"></div>
+  <div class="table-wrap">
+    <div class="sig-count" id="pos-count"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Statut</th>
+          <th>Entrée (MC)</th>
+          <th>MC actuel</th>
+          <th>P&amp;L</th>
+          <th>Cibles</th>
+          <th>Sortie</th>
+          <th>Tx</th>
+          <th>Ouverte</th>
+        </tr>
+      </thead>
+      <tbody id="pos-tbody"></tbody>
+    </table>
+  </div>
+  <p class="pl-note">
+    Source : table <code>positions</code> du bot via webhook n8n — P&amp;L calculé sur le market cap (cohérent avec le TP/SL automatique du bot).
+  </p>
+</div><!-- /tab-positions -->
+
 <script>
 var SHEET_ID = '1LGMojKgGIEGsMDkkHx69GPFY_88UTHJKE6vB5XST3xk';
 var allSignals = [];
@@ -439,6 +470,7 @@ function switchTab(name, btn) {
   document.getElementById('tab-'+name).classList.add('active');
   btn.classList.add('active');
   if (name === 'prelaunch' && plTokens.length === 0) loadPrelaunch();
+  if (name === 'positions') loadPositions();
 }
 
 // ── TIME HELPERS ──
@@ -521,6 +553,7 @@ function fetchLive(tokens, cb) {
               ch24h: pair.priceChange && pair.priceChange.h24 != null ? parseFloat(pair.priceChange.h24) : null,
               liq:   pair.liquidity  && pair.liquidity.usd    != null ? parseFloat(pair.liquidity.usd)   : null,
               price: pair.priceUsd ? parseFloat(pair.priceUsd) : (pair.priceNative ? parseFloat(pair.priceNative) : null),
+              mcap:  pair.marketCap != null ? parseFloat(pair.marketCap) : (pair.fdv != null ? parseFloat(pair.fdv) : null),
               buys1h:  pair.txns && pair.txns.h1 ? (pair.txns.h1.buys || 0)  : 0,
               sells1h: pair.txns && pair.txns.h1 ? (pair.txns.h1.sells || 0) : 0
             };
@@ -1027,6 +1060,72 @@ function confirmBuy(){
     st.className = 'buy-status err';
     btn.disabled = false;
   });
+}
+
+// ── POSITIONS (portefeuille : table positions du bot) ──
+var POSITIONS_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/positions-data';
+var _positions = [];
+
+function fmtMc(v){ if(v==null||isNaN(v)) return '—'; v=Number(v); if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1e3) return '$'+(v/1e3).toFixed(1)+'k'; return '$'+v.toFixed(0); }
+
+function loadPositions() {
+  var err = document.getElementById('pos-error'); if(err) err.style.display='none';
+  document.getElementById('pos-w-upd').textContent = '…';
+  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
+  fetch(POSITIONS_WEBHOOK).then(function(r){ return r.json(); })
+  .then(function(data){
+    var rows = Array.isArray(data) ? data : (data && data.positions ? data.positions : []);
+    _positions = rows;
+    var mints = rows.filter(function(p){ return p.status === 'open' && p.mint; }).map(function(p){ return { address: p.mint }; });
+    if (mints.length) { fetchLive(mints, function(live){ renderPositions(_positions, live); }); }
+    else { renderPositions(_positions, {}); }
+  })
+  .catch(function(){
+    var err = document.getElementById('pos-error');
+    if(err){ err.textContent = 'Erreur de chargement des positions'; err.style.display='block'; }
+    document.getElementById('pos-tbody').innerHTML = '';
+  });
+}
+
+function renderPositions(rows, live) {
+  var open = rows.filter(function(p){ return p.status === 'open'; });
+  var closed = rows.filter(function(p){ return p.status !== 'open'; });
+  var ordered = open.concat(closed);
+  var n = new Date();
+  document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
+  document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
+  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
+  var html = '';
+  ordered.forEach(function(p){
+    var l = live[String(p.mint||'').toLowerCase()] || null;
+    var entryMc = Number(p.entry_mcap);
+    var isOpen = p.status === 'open';
+    var curMc = isOpen ? (l && l.mcap != null ? l.mcap : null) : (p.exit_mcap != null ? Number(p.exit_mcap) : null);
+    var pnl = (entryMc>0 && curMc!=null) ? ((curMc-entryMc)/entryMc*100) : null;
+    var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'">'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%</span>' : '<span class="ch-neu">—</span>';
+    var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
+    var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
+    var tokenHtml = '<a class="dex-link" href="'+dexUrl+'" target="_blank">'+sym+' ↗</a>';
+    var statusHtml = isOpen ? '<span class="liq-green">● ouverte</span>' : '<span class="ch-neu">fermée</span>';
+    var targetsHtml = isOpen ? '<span class="ch-pos">+10%</span> / <span class="ch-neg">-30%</span>' : '—';
+    var exitHtml = isOpen ? '—' : (p.exit_reason || '—');
+    var txHtml = p.buy_tx ? '<a class="dex-link" href="https://solscan.io/tx/'+p.buy_tx+'" target="_blank">achat ↗</a>' : '—';
+    if(!isOpen && p.sell_tx) txHtml += ' · <a class="dex-link" href="https://solscan.io/tx/'+p.sell_tx+'" target="_blank">vente ↗</a>';
+    var when = p.opened_at || p.created_at || null;
+    var ageHtml = when ? relTime(when) : '—';
+    html += '<tr>'+
+      '<td>'+tokenHtml+'</td>'+
+      '<td>'+statusHtml+'</td>'+
+      '<td>'+fmtMc(entryMc)+'</td>'+
+      '<td>'+(curMc!=null?fmtMc(curMc):'<span class="ch-neu">—</span>')+'</td>'+
+      '<td>'+pnlHtml+'</td>'+
+      '<td>'+targetsHtml+'</td>'+
+      '<td>'+exitHtml+'</td>'+
+      '<td>'+txHtml+'</td>'+
+      '<td>'+ageHtml+'</td>'+
+    '</tr>';
+  });
+  document.getElementById('pos-tbody').innerHTML = html;
 }
 
 // ── AUTO-REFRESH ──
