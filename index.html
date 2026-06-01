@@ -58,6 +58,10 @@ body { background: var(--bg0); color: var(--text); font-family: 'SF Mono', 'Fira
 .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
 .buy-btn { background: #16a34a; border: none; color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
 .buy-btn:hover { background: #15803d; }
+.sell-btn { background: #dc2626; border: none; color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
+.sell-btn:hover { background: #b91c1c; }
+.sell-confirm { flex: 2; background: #dc2626; border: none; color: #fff; padding: 8px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; }
+.sell-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 .buy-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .buy-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 300px; max-width: 90vw; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 .buy-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
@@ -436,6 +440,7 @@ tr:hover td { background: var(--bg1); }
           <th>Sortie</th>
           <th>Tx</th>
           <th>Ouverte</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody id="pos-tbody"></tbody>
@@ -1063,6 +1068,52 @@ function confirmBuy(){
 }
 
 // ── POSITIONS (portefeuille : table positions du bot) ──
+// ── VENTE (bouton dashboard → webhook n8n /sell) ──
+var SELL_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/sell';
+var _sellCtx = { mint: '', sym: '' };
+function openSell(mint, sym){
+  _sellCtx = { mint: mint, sym: sym };
+  document.getElementById('sell-sym').textContent = sym;
+  document.getElementById('sell-mint').textContent = mint.slice(0,4) + '…' + mint.slice(-4);
+  document.getElementById('sell-pin').value = '';
+  var st = document.getElementById('sell-status'); st.textContent = ''; st.className = 'buy-status';
+  document.getElementById('sell-confirm').disabled = false;
+  document.getElementById('sell-modal').style.display = 'flex';
+  document.getElementById('sell-pin').focus();
+}
+function closeSell(){ document.getElementById('sell-modal').style.display = 'none'; }
+function confirmSell(){
+  var pin = document.getElementById('sell-pin').value;
+  var st = document.getElementById('sell-status');
+  if(!pin){ st.textContent = 'PIN requis'; st.className = 'buy-status err'; return; }
+  var btn = document.getElementById('sell-confirm');
+  btn.disabled = true;
+  st.textContent = 'Vente en cours…'; st.className = 'buy-status';
+  fetch(SELL_WEBHOOK, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mint: _sellCtx.mint, pin: pin })
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j }; }).catch(function(){ return { status: r.status, j: null }; }); })
+  .then(function(res){
+    if(res.j && res.j.ok){
+      var tx = res.j.sellTx ? (' (' + String(res.j.sellTx).slice(0,8) + '…)') : '';
+      st.textContent = '✅ Vente envoyée' + tx;
+      st.className = 'buy-status ok';
+      setTimeout(function(){ closeSell(); loadPositions(); }, 2500);
+    } else {
+      st.textContent = '❌ ' + ((res.j && res.j.error) || ('Erreur ' + res.status));
+      st.className = 'buy-status err';
+      btn.disabled = false;
+    }
+  })
+  .catch(function(e){
+    st.textContent = '❌ Réseau: ' + e.message;
+    st.className = 'buy-status err';
+    btn.disabled = false;
+  });
+}
+
 var POSITIONS_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/positions-data';
 var _positions = [];
 
@@ -1071,7 +1122,7 @@ function fmtMc(v){ if(v==null||isNaN(v)) return '—'; v=Number(v); if(v>=1e6) r
 function loadPositions() {
   var err = document.getElementById('pos-error'); if(err) err.style.display='none';
   document.getElementById('pos-w-upd').textContent = '…';
-  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
+  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
   fetch(POSITIONS_WEBHOOK).then(function(r){ return r.json(); })
   .then(function(data){
     var rows = Array.isArray(data) ? data : (data && data.positions ? data.positions : []);
@@ -1094,7 +1145,7 @@ function renderPositions(rows, live) {
   var n = new Date();
   document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
   document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
-  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
+  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
   var html = '';
   ordered.forEach(function(p){
     var l = live[String(p.mint||'').toLowerCase()] || null;
@@ -1123,6 +1174,7 @@ function renderPositions(rows, live) {
       '<td>'+exitHtml+'</td>'+
       '<td>'+txHtml+'</td>'+
       '<td>'+ageHtml+'</td>'+
+      '<td>'+(isOpen ? '<button class="sell-btn" onclick="openSell(&#39;'+(p.mint||'')+'&#39;,&#39;'+sym+'&#39;)">Vendre</button>' : '—')+'</td>'+
     '</tr>';
   });
   document.getElementById('pos-tbody').innerHTML = html;
@@ -1152,6 +1204,20 @@ window.onload = function() {
     <div class="buy-actions">
       <button class="buy-cancel" onclick="closeBuy()">Annuler</button>
       <button id="buy-confirm" class="buy-confirm" onclick="confirmBuy()">Confirmer l'achat</button>
+    </div>
+  </div>
+</div>
+<div id="sell-modal" class="buy-overlay" style="display:none">
+  <div class="buy-box">
+    <div class="buy-title">Vendre <span id="sell-sym">?</span></div>
+    <div class="buy-addr"><span id="sell-mint">—</span></div>
+    <p class="buy-label" style="margin:6px 0 10px">Vente de 100% de la position au marché.</p>
+    <label class="buy-label">PIN</label>
+    <input id="sell-pin" class="buy-input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••••">
+    <div id="sell-status" class="buy-status"></div>
+    <div class="buy-actions">
+      <button class="buy-cancel" onclick="closeSell()">Annuler</button>
+      <button id="sell-confirm" class="sell-confirm" onclick="confirmSell()">Confirmer la vente</button>
     </div>
   </div>
 </div>
