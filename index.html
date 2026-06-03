@@ -812,8 +812,12 @@ function fetchAndRender() {
 }
 
 function forceRefresh() {
-  loadData(SHEET_ID);
-  if (activeTab === 'prelaunch') loadPrelaunch();
+  // Rafraichit l'onglet actif (toutes les 30s) : evite de marteler les webhooks n8n / DexScreener
+  // pour les onglets non visibles. Couvre Signaux, G1, Pre-launch et Positions.
+  if (activeTab === 'g1') loadG1();
+  else if (activeTab === 'prelaunch') loadPrelaunch();
+  else if (activeTab === 'positions') loadPositions();
+  else loadData(SHEET_ID);
 }
 
 
