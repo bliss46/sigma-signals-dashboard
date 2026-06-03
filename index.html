@@ -490,15 +490,24 @@ function relTime(ts) {
   if (h < 24) return 'il y a ' + Math.round(h) + 'h';
   return 'il y a ' + Math.round(h/24) + 'j';
 }
-function ageStr(age_minutes, ts) {
-  var base = age_minutes != null && age_minutes !== '' ? parseFloat(age_minutes) : 0;
-  var tsEff = ts;
-  var extra = tsEff ? Math.round((Date.now() - new Date(tsEff).getTime()) / 60000) : 0;
-  var total = base + extra;
-  if ((age_minutes == null || age_minutes === '') && !tsEff) return '—';
-  if (total < 60) return total + 'min';
-  if (total < 1440) return Math.round(total/60*10)/10 + 'h';
-  return Math.round(total/1440) + 'j';
+function fmtAge(totalMin) {
+  if (totalMin < 60) return Math.round(totalMin) + 'min';
+  if (totalMin < 1440) return Math.round(totalMin/60*10)/10 + 'h';
+  return Math.round(totalMin/1440) + 'j';
+}
+function ageStr(age_minutes, ts, liveCreatedAt) {
+  // Source of truth: live pair-creation time from DexScreener (oldest pair = true token age).
+  // Correct even when age_minutes was never stored (02/C1/M1) or when the token migrated to a new pool.
+  if (liveCreatedAt != null && !isNaN(liveCreatedAt)) {
+    return fmtAge((Date.now() - liveCreatedAt) / 60000);
+  }
+  // Fallback: stored age at scan + elapsed since scan. Only valid if age_minutes is known —
+  // if it's null we must NOT add time-since-scan (that is detection age, not token age) → show '—'.
+  if (age_minutes == null || age_minutes === '') return '—';
+  var base = parseFloat(age_minutes);
+  if (isNaN(base)) return '—';
+  var extra = ts ? Math.round((Date.now() - new Date(ts).getTime()) / 60000) : 0;
+  return fmtAge(base + extra);
 }
 
 // ── LIVE NOTE CALCULATION ──
@@ -554,6 +563,7 @@ function fetchLive(tokens, cb) {
         (Array.isArray(data) ? data : []).forEach(function(pair) {
           if (!pair || !pair.baseToken) return;
           var addr = (pair.baseToken.address || '').toLowerCase();
+          var pca = pair.pairCreatedAt != null ? parseFloat(pair.pairCreatedAt) : null;
           if (!results[addr]) {
             results[addr] = {
               ch1h:  pair.priceChange && pair.priceChange.h1  != null ? parseFloat(pair.priceChange.h1)  : null,
@@ -562,8 +572,12 @@ function fetchLive(tokens, cb) {
               price: pair.priceUsd ? parseFloat(pair.priceUsd) : (pair.priceNative ? parseFloat(pair.priceNative) : null),
               mcap:  pair.marketCap != null ? parseFloat(pair.marketCap) : (pair.fdv != null ? parseFloat(pair.fdv) : null),
               buys1h:  pair.txns && pair.txns.h1 ? (pair.txns.h1.buys || 0)  : 0,
-              sells1h: pair.txns && pair.txns.h1 ? (pair.txns.h1.sells || 0) : 0
+              sells1h: pair.txns && pair.txns.h1 ? (pair.txns.h1.sells || 0) : 0,
+              pairCreatedAt: (pca != null && !isNaN(pca)) ? pca : null
             };
+          } else if (pca != null && !isNaN(pca) && (results[addr].pairCreatedAt == null || pca < results[addr].pairCreatedAt)) {
+            // keep the OLDEST pair's creation time = true token age (robust to migration to a new pool)
+            results[addr].pairCreatedAt = pca;
           }
         });
         done++;
@@ -632,10 +646,13 @@ function renderTable() {
       return sortDir * (new Date(av).getTime() - new Date(bv).getTime());
     }
     else if (sortCol === 'age') {
+      var aLive = a._live, bLive = b._live;
       var aBase = parseFloat(a.age_minutes)||0, bBase = parseFloat(b.age_minutes)||0;
       var ats = a.timestamp||a.l1, bts = b.timestamp||b.l1;
-      av = ats ? aBase + Math.round((now - new Date(ats).getTime())/60000) : Infinity;
-      bv = bts ? bBase + Math.round((now - new Date(bts).getTime())/60000) : Infinity;
+      av = (aLive && aLive.pairCreatedAt != null) ? Math.round((now - aLive.pairCreatedAt)/60000)
+           : (ats ? aBase + Math.round((now - new Date(ats).getTime())/60000) : Infinity);
+      bv = (bLive && bLive.pairCreatedAt != null) ? Math.round((now - bLive.pairCreatedAt)/60000)
+           : (bts ? bBase + Math.round((now - new Date(bts).getTime())/60000) : Infinity);
     }
     else if (sortCol === 'ch1h')  { av = a._ch1h;  bv = b._ch1h;  if(av==null)return 1; if(bv==null)return -1; }
     else if (sortCol === 'ch24h') { av = a._ch24h; bv = b._ch24h; if(av==null)return 1; if(bv==null)return -1; }
@@ -700,7 +717,7 @@ function renderTable() {
       '<td>' + srcHtml + '</td>' +
       '<td>' + (live ? noteHtml : (window._liveDone ? '<span class="ch-neu" title="Prix indisponible (token inactif)">—</span>' : '<span class="ch-neu"><span class="spin"></span></span>')) + '</td>' +
       '<td>' + relTime(ts) + '</td>' +
-      '<td>' + ageStr(s.age_minutes, ts) + '</td>' +
+      '<td>' + ageStr(s.age_minutes, ts, (live && live.pairCreatedAt != null) ? live.pairCreatedAt : null) + '</td>' +
       '<td>' + ch1hHtml + '</td>' +
       '<td>' + ch24hHtml + '</td>' +
       '<td>' + liqHtml + '</td>' +
