@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sigma Signals — Connexion</title>
+<style>
+:root {
+  --bg0:#0d1117; --bg1:#161b22; --border:#30363d; --text:#e6edf3;
+  --muted:#7d8590; --accent:#7c3aed; --red:#f85149;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:var(--bg0); color:var(--text);
+  font-family:'SF Mono','Fira Code',monospace;
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.card {
+  width:100%; max-width:340px; background:var(--bg1);
+  border:1px solid var(--border); border-radius:14px; padding:32px 28px; text-align:center;
+}
+.logo { width:96px; height:96px; border-radius:20px; margin:0 auto 18px; display:block; object-fit:cover; }
+h1 { font-size:18px; font-weight:700; margin-bottom:4px; }
+.sub { font-size:11px; color:var(--muted); margin-bottom:24px; }
+.field { text-align:left; margin-bottom:14px; }
+.field label { display:block; font-size:11px; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.6px; }
+.field input {
+  width:100%; background:var(--bg0); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:inherit; font-size:13px;
+}
+.field input:focus { outline:none; border-color:var(--accent); }
+.btn {
+  width:100%; background:var(--accent); border:none; color:#fff; padding:11px;
+  border-radius:8px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; margin-top:6px;
+}
+.btn:hover { background:#6d28d9; }
+.btn:disabled { opacity:.6; cursor:default; }
+.err { color:var(--red); font-size:11px; margin-top:12px; min-height:14px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <img src="/Logo_Sigma_Signals.png" class="logo" alt="Sigma Signals" onerror="this.style.display='none'">
+  <h1>Sigma Signals</h1>
+  <div class="sub">Decision dashboard · Solana</div>
+  <div class="field">
+    <label for="user">Utilisateur</label>
+    <input id="user" type="text" autocomplete="username" autofocus>
+  </div>
+  <div class="field">
+    <label for="pass">Mot de passe</label>
+    <input id="pass" type="password" autocomplete="current-password">
+  </div>
+  <button class="btn" id="go" onclick="login()">Se connecter</button>
+  <div class="err" id="err"></div>
+</div>
+<script>
+var goBtn = document.getElementById('go');
+var errEl = document.getElementById('err');
+function login() {
+  var user = document.getElementById('user').value;
+  var pass = document.getElementById('pass').value;
+  errEl.textContent = '';
+  goBtn.disabled = true; goBtn.textContent = 'Connexion…';
+  fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: user, pass: pass })
+  })
+  .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return { ok: r.ok, j: j }; }); })
+  .then(function(res){
+    if (res.ok && res.j && res.j.ok) { window.location.href = '/'; }
+    else { errEl.textContent = (res.j && res.j.error) || 'Echec de connexion'; goBtn.disabled = false; goBtn.textContent = 'Se connecter'; }
+  })
+  .catch(function(){ errEl.textContent = 'Erreur reseau'; goBtn.disabled = false; goBtn.textContent = 'Se connecter'; });
+}
+['user','pass'].forEach(function(id){
+  document.getElementById(id).addEventListener('keydown', function(e){ if (e.key === 'Enter') login(); });
+});
+</script>
+</body>
+</html>
