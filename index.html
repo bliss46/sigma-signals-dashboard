@@ -425,6 +425,7 @@ tr:hover td { background: var(--bg1); }
     <button class="refresh-btn" onclick="loadPositions()">↻ Refresh</button>
     <span id="pos-w-upd" class="clock"></span>
   </div>
+  <div id="pos-wallet" style="margin:4px 0 12px;font-size:14px"></div>
   <div id="pos-error" class="pl-error" style="display:none"></div>
   <div class="table-wrap">
     <div class="sig-count" id="pos-count"></div>
@@ -432,6 +433,7 @@ tr:hover td { background: var(--bg1); }
       <thead>
         <tr>
           <th>Token</th>
+          <th>Nom</th>
           <th>Statut</th>
           <th>Entrée (MC)</th>
           <th>MC actuel</th>
@@ -1116,16 +1118,46 @@ function confirmSell(){
 
 var POSITIONS_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/positions-data';
 var _positions = [];
+var _lastWallet = null;
+window._solPrice = null;
+
+// Prix SOL/USD via DexScreener (wrapped SOL) pour convertir le solde en $.
+function fetchSolPrice(cb){
+  fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var pairs=(d&&d.pairs)||[];
+      var best=pairs.filter(function(p){return p.chainId==='solana';})
+                    .sort(function(a,b){return (b.liquidity&&b.liquidity.usd||0)-(a.liquidity&&a.liquidity.usd||0);})[0];
+      if(best&&best.priceUsd){ window._solPrice=Number(best.priceUsd); }
+      if(cb) cb();
+    }).catch(function(){ if(cb) cb(); });
+}
+
+// En-tete "Solde wallet : X SOL ≈ $Y" de l'onglet Positions (alimente par data.wallet de P2).
+function renderWallet(w){
+  if(w!==undefined) _lastWallet = w;
+  var el=document.getElementById('pos-wallet'); if(!el) return;
+  var ww=_lastWallet;
+  if(!ww || ww.sol==null){ el.innerHTML=''; return; }
+  var sol=Number(ww.sol);
+  var usd = (window._solPrice!=null) ? ' ≈ <b>$'+(sol*window._solPrice).toFixed(0)+'</b>' : '';
+  var addr = ww.address ? ' <span style="color:var(--muted)">('+String(ww.address).slice(0,4)+'…'+String(ww.address).slice(-4)+')</span>' : '';
+  el.innerHTML = '💰 Solde wallet : <b>'+sol.toFixed(4)+' SOL</b>'+usd+addr;
+  if(window._solPrice==null) fetchSolPrice(function(){ renderWallet(); });
+}
 
 function fmtMc(v){ if(v==null||isNaN(v)) return '—'; v=Number(v); if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1e3) return '$'+(v/1e3).toFixed(1)+'k'; return '$'+v.toFixed(0); }
 
 function loadPositions() {
   var err = document.getElementById('pos-error'); if(err) err.style.display='none';
   document.getElementById('pos-w-upd').textContent = '…';
-  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
+  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
   fetch(POSITIONS_WEBHOOK).then(function(r){ return r.json(); })
   .then(function(data){
     var rows = Array.isArray(data) ? data : (data && data.positions ? data.positions : []);
+    var wallet = (data && !Array.isArray(data)) ? (data.wallet || null) : null;
+    renderWallet(wallet);
     _positions = rows;
     var mints = rows.filter(function(p){ return p.status === 'open' && p.mint; }).map(function(p){ return { address: p.mint }; });
     if (mints.length) { fetchLive(mints, function(live){ renderPositions(_positions, live); }); }
@@ -1145,7 +1177,7 @@ function renderPositions(rows, live) {
   var n = new Date();
   document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
   document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
-  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
+  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
   var html = '';
   ordered.forEach(function(p){
     var l = live[String(p.mint||'').toLowerCase()] || null;
@@ -1155,6 +1187,7 @@ function renderPositions(rows, live) {
     var pnl = (entryMc>0 && curMc!=null) ? ((curMc-entryMc)/entryMc*100) : null;
     var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'">'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%</span>' : '<span class="ch-neu">—</span>';
     var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
+    var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
     var tokenHtml = '<a class="dex-link" href="'+dexUrl+'" target="_blank">'+sym+' ↗</a>';
     var statusHtml = isOpen ? '<span class="liq-green">● ouverte</span>' : '<span class="ch-neu">fermée</span>';
@@ -1166,6 +1199,7 @@ function renderPositions(rows, live) {
     var ageHtml = when ? relTime(when) : '—';
     html += '<tr>'+
       '<td>'+tokenHtml+'</td>'+
+      '<td>'+nameHtml+'</td>'+
       '<td>'+statusHtml+'</td>'+
       '<td>'+fmtMc(entryMc)+'</td>'+
       '<td>'+(curMc!=null?fmtMc(curMc):'<span class="ch-neu">—</span>')+'</td>'+
