@@ -744,7 +744,7 @@ function setFilter(btn) {
 
 // ── LOAD SHEET ──
 function loadData(id) {
-  var url = 'https://n8n-production-05f0.up.railway.app/webhook/signals-data';
+  var url = '/api/n8n?hook=signals-data';
   fetch(url).then(function(r){ return r.json(); })
   .then(function(data) {
     allSignals = [];
@@ -801,7 +801,7 @@ function forceRefresh() {
 
 
 // ── PRE-LAUNCH — proxy n8n (DexScreener < 30min) ──
-var PRELAUNCH_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/prelaunch-data';
+var PRELAUNCH_WEBHOOK = '/api/n8n?hook=prelaunch-data';
 
 function loadPrelaunch() {
   document.getElementById('pl-error').style.display = 'none';
@@ -908,7 +908,7 @@ function renderPrelaunch() {
 
 
 // ── G1 TRACKER ──
-var G1_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/g1-data';
+var G1_WEBHOOK = '/api/n8n?hook=g1-data';
 
 function loadG1() {
   document.getElementById('g1-spin').style.display = 'inline';
@@ -1116,7 +1116,7 @@ function confirmSell(){
   });
 }
 
-var POSITIONS_WEBHOOK = 'https://n8n-production-05f0.up.railway.app/webhook/positions-data';
+var POSITIONS_WEBHOOK = '/api/n8n?hook=positions-data';
 var _positions = [];
 var _lastWallet = null;
 window._solPrice = null;
