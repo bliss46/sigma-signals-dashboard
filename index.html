@@ -1298,5 +1298,27 @@ window.onload = function() {
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 }catch(e){console.error('[sigma pos-sort]',e);}})();
 </script>
+
+<script>
+/* === Sigma: ligne indicative Gas/Slippage dans la modale d'achat (ajout hors-build, additif) === */
+(function(){try{
+  var INFO='Indicatif (config bot) · Gas 0.0005 SOL · Slippage 15 % · pool auto · sans anti-MEV';
+  function ensure(){
+    var modal=document.getElementById('buy-modal'); if(!modal) return;
+    var btn=document.getElementById('buy-confirm'); if(!btn||!btn.parentNode) return;
+    if(document.getElementById('buy-indic')) return;
+    var d=document.createElement('div');
+    d.id='buy-indic'; d.textContent=INFO;
+    d.style.cssText='color:#7d8590;font-size:11px;line-height:1.4;text-align:center;margin:10px 0 4px;opacity:.85;';
+    btn.parentNode.insertBefore(d, btn);
+  }
+  function init(){
+    var modal=document.getElementById('buy-modal'); if(!modal){return setTimeout(init,800);}
+    ensure();
+    if(window.MutationObserver){var o=new MutationObserver(function(){ensure();});o.observe(modal,{childList:true,subtree:true,attributes:true});}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+}catch(e){console.error('[sigma buy-indic]',e);}})();
+</script>
 </body>
 </html>
