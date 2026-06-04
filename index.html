@@ -88,7 +88,7 @@ input[type=range] { width: 80px; accent-color: var(--accent); }
 table { width: 100%; border-collapse: collapse; min-width: 900px; }
 th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; white-space: nowrap; user-select: none; }
 th:hover { color: var(--text); }
-th .sort-arrow { margin-left: 3px; opacity: 0.4; }
+th .sort-arrow { margin-left: 3px; opacity: 0.4; font-size: 18px; vertical-align: middle; line-height: 1; }
 th.sorted .sort-arrow { opacity: 1; color: var(--accent); }
 td { padding: 7px 10px; border-bottom: 1px solid #1c2333; vertical-align: middle; }
 tr:hover td { background: var(--bg1); }
@@ -1385,6 +1385,22 @@ window.onload = function() {
   }
   updateWalletTotal();
   setInterval(updateWalletTotal,30000);
+})();
+</script>
+
+<!-- SIGMA-S18-ARROWSIZE -->
+<script>
+(function(){
+  'use strict';
+  var RX_END=/[\u2191\u2193\u2195]\s*$/;
+  var RX_ALL=/\s*[\u2191\u2193\u2195]\s*$/;
+  function posTable(){var ths=document.querySelectorAll('table th');for(var i=0;i<ths.length;i++){if(/Cibles/i.test(ths[i].textContent||''))return ths[i].closest('table');}return null;}
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function wrap(table){if(!table)return;var ths=table.querySelectorAll('th');for(var i=0;i<ths.length;i++){var th=ths[i];if(th.querySelector('.sort-arrow'))continue;var txt=th.textContent||'';var m=txt.match(RX_END);if(!m)continue;var glyph=m[0].trim();var base=txt.replace(RX_ALL,'');th.innerHTML=esc(base)+' <span class="sort-arrow">'+glyph+'</span>';}}
+  function run(){try{wrap(posTable());}catch(e){}}
+  run();
+  try{var t=posTable();var target=(t&&(t.querySelector('thead')||t))||document.body;var obs=new MutationObserver(function(){run();});obs.observe(target,{childList:true,subtree:true,characterData:true});}catch(e){}
+  setInterval(run,2000);
 })();
 </script>
 
