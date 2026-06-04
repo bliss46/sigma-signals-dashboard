@@ -1279,5 +1279,24 @@ window.onload = function() {
     </div>
   </div>
 </div>
+
+<script>
+/* === Sigma: tri colonnes onglet Positions (ajout hors-build, additif) === */
+(function(){try{
+  var NOSORT=['action'];
+  function table(){var tb=document.getElementById('pos-tbody');return tb?tb.closest('table'):null;}
+  function ths(){var t=table();return t?Array.prototype.slice.call(t.querySelectorAll('th')):[];}
+  function lbl(th){var b=th.getAttribute('data-lbl');if(b===null){b=(th.textContent||'').replace(/[↑↓↕]/g,'').trim();th.setAttribute('data-lbl',b);}return b;}
+  function sortable(th){return NOSORT.indexOf(lbl(th).toLowerCase())<0;}
+  var state={col:null,dir:1},obs=null;
+  function val(td){var txt=((td&&td.textContent)||'').trim();var t=txt.replace(/[\s,$]/g,'');var m=t.match(/^([+-]?\d+(?:\.\d+)?)([kKmMbB])?%?$/);if(m){var v=parseFloat(m[1]),s=(m[2]||'').toLowerCase();if(s==='k')v*=1e3;else if(s==='m')v*=1e6;else if(s==='b')v*=1e9;return{n:v};}var r=txt.match(/(\d+(?:\.\d+)?)\s*(min|h|j|d)\b/);if(r){var rv=parseFloat(r[1]),u=r[2];if(u==='h')rv*=60;else if(u==='j'||u==='d')rv*=1440;return{n:rv};}if(!txt)return{n:-Infinity};return{s:txt.toLowerCase()};}
+  function doSort(){if(state.col===null)return;var tb=document.getElementById('pos-tbody');if(!tb)return;var rows=Array.prototype.slice.call(tb.children).filter(function(r){return r.tagName==='TR'&&r.children.length>state.col;});if(rows.length<2)return;var ci=state.col,d=state.dir;rows.sort(function(a,b){var va=val(a.children[ci]),vb=val(b.children[ci]);if('n' in va&&'n' in vb)return(va.n-vb.n)*d;var sa=('n' in va)?String(va.n):va.s,sb=('n' in vb)?String(vb.n):vb.s;return sa<sb?-d:sa>sb?d:0;});var f=document.createDocumentFragment();rows.forEach(function(r){f.appendChild(r);});tb.appendChild(f);}
+  function paint(){ths().forEach(function(th,i){var L=lbl(th);if(!sortable(th)){th.style.cursor='';return;}th.style.cursor='pointer';th.style.userSelect='none';var ind=(i===state.col)?(state.dir>0?' ↑':' ↓'):' ↕';th.textContent=L+ind;});}
+  function reapply(){if(obs)obs.disconnect();doSort();paint();if(obs){var tb=document.getElementById('pos-tbody');if(tb)obs.observe(tb,{childList:true});}}
+  function onClick(e){var th=e.target.closest('th');if(!th)return;var t=table();if(!t||!t.contains(th))return;if(!sortable(th))return;var i=ths().indexOf(th);if(i<0)return;if(state.col===i)state.dir=-state.dir;else{state.col=i;state.dir=1;}reapply();}
+  function init(){var t=table();if(!t){return setTimeout(init,800);}t.addEventListener('click',onClick);paint();var tb=document.getElementById('pos-tbody');if(tb&&window.MutationObserver){obs=new MutationObserver(function(){if(state.col!==null)reapply();});obs.observe(tb,{childList:true});}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+}catch(e){console.error('[sigma pos-sort]',e);}})();
+</script>
 </body>
 </html>
