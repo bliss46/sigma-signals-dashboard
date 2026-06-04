@@ -1215,7 +1215,7 @@ function renderPositions(rows, live) {
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
     var tokenHtml = '<a class="dex-link" href="'+dexUrl+'" target="_blank">'+sym+' ↗</a>';
     var statusHtml = isOpen ? '<span class="liq-green">● ouverte</span>' : '<span class="ch-neu">fermée</span>';
-    var targetsHtml = isOpen ? '<span class="ch-pos">+10%</span> / <span class="ch-neg">-30%</span>' : '—';
+    var targetsHtml = isOpen ? ('<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:10)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>') : '—';
     var exitHtml = isOpen ? '—' : (p.exit_reason || '—');
     var txHtml = p.buy_tx ? '<a class="dex-link" href="https://solscan.io/tx/'+p.buy_tx+'" target="_blank">achat ↗</a>' : '—';
     if(!isOpen && p.sell_tx) txHtml += ' · <a class="dex-link" href="https://solscan.io/tx/'+p.sell_tx+'" target="_blank">vente ↗</a>';
