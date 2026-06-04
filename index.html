@@ -1320,5 +1320,73 @@ window.onload = function() {
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 }catch(e){console.error('[sigma buy-indic]',e);}})();
 </script>
+<!-- SIGMA-S18-TPSL-WALLET -->
+<script>
+(function(){
+  'use strict';
+  function ensureSliders(){
+    var box=document.querySelector('#buy-modal .buy-box');
+    if(!box||document.getElementById('buy-tpsl'))return;
+    var wrap=document.createElement('div');
+    wrap.id='buy-tpsl';
+    wrap.style.cssText='margin:12px 0;font-size:13px;text-align:left;';
+    wrap.innerHTML='<label style="display:block;margin:8px 0 2px;">Take Profit : <b id="buy-tp-val">+25%</b></label>'+
+      '<input id="buy-tp" type="range" min="10" max="50" step="1" value="25" style="width:100%">'+
+      '<label style="display:block;margin:10px 0 2px;">Stop Loss : <b id="buy-sl-val">-30%</b></label>'+
+      '<input id="buy-sl" type="range" min="30" max="50" step="1" value="30" style="width:100%">';
+    var pin=document.getElementById('buy-pin');
+    var btns=[].slice.call(box.querySelectorAll('button'));
+    var conf=btns.filter(function(b){return /Confirmer/i.test(b.textContent||'');})[0];
+    var anchor=conf?conf.closest('div'):null;
+    if(anchor&&anchor.parentNode===box){box.insertBefore(wrap,anchor);}
+    else if(pin&&pin.parentNode){pin.parentNode.insertBefore(wrap,pin.nextSibling);}
+    else{box.appendChild(wrap);}
+    var tp=document.getElementById('buy-tp'),sl=document.getElementById('buy-sl');
+    tp.addEventListener('input',function(){document.getElementById('buy-tp-val').textContent='+'+tp.value+'%';});
+    sl.addEventListener('input',function(){document.getElementById('buy-sl-val').textContent='-'+sl.value+'%';});
+  }
+  ensureSliders();
+  try{var mo=new MutationObserver(function(){ensureSliders();});mo.observe(document.body,{childList:true,subtree:true});}catch(e){}
+  var _fetch=window.fetch;
+  window.fetch=function(input,opts){
+    try{
+      var u=typeof input==='string'?input:(input&&input.url)||'';
+      if(/\/webhook\/buy/.test(u)&&opts&&typeof opts.body==='string'){
+        var tp=document.getElementById('buy-tp'),sl=document.getElementById('buy-sl');
+        if(tp&&sl){var b=JSON.parse(opts.body);b.tp_pct=Number(tp.value);b.sl_pct=Number(sl.value);opts=Object.assign({},opts,{body:JSON.stringify(b)});}
+      }
+    }catch(e){}
+    return _fetch.call(this,input,opts);
+  };
+  function fmtSol(n){return (Math.round(n*1e4)/1e4).toFixed(4);}
+  async function updateWalletTotal(){
+    try{
+      var d=await fetch('/api/n8n?hook=positions-data',{cache:'no-store'}).then(function(r){return r.json();});
+      var positions=Array.isArray(d)?d:(d.positions||[]);
+      var wallet=(!Array.isArray(d)&&d.wallet)||null;
+      var avail=wallet&&typeof wallet.sol==='number'?wallet.sol:null;
+      var open=positions.filter(function(p){return p.status==='open';});
+      var openVal=0;
+      if(open.length){
+        var mints=open.map(function(p){return p.mint;}).filter(Boolean).slice(0,30);
+        var mc={};
+        try{
+          var pairs=await fetch('https://api.dexscreener.com/tokens/v1/solana/'+mints.join(','),{cache:'no-store'}).then(function(r){return r.json();});
+          (Array.isArray(pairs)?pairs:[]).forEach(function(pr){var a=pr&&pr.baseToken&&pr.baseToken.address;var m=pr&&(pr.marketCap||pr.fdv);if(a&&m){var k=a.toLowerCase();if(!mc[k]||m>mc[k])mc[k]=m;}});
+        }catch(e){}
+        open.forEach(function(p){var s=Number(p.sol_in);if(!isFinite(s)||s<=0)return;var em=Number(p.entry_mcap);var cm=mc[(p.mint||'').toLowerCase()];if(em>0&&cm>0){openVal+=s*(cm/em);}else{openVal+=s;}});
+      }
+      var elT=document.getElementById('pos-wallet-total');
+      if(!elT){var w=document.getElementById('pos-wallet');if(!w)return;elT=document.createElement('div');elT.id='pos-wallet-total';elT.style.cssText='padding-left:24px;font-size:14px;opacity:.92;margin:2px 0 12px;';w.parentNode.insertBefore(elT,w.nextSibling);}
+      if(avail==null){elT.textContent='';return;}
+      var total=avail+openVal;
+      elT.innerHTML='\uD83D\uDCB0 Solde total : <b>'+fmtSol(total)+' SOL</b> <span style="opacity:.7">(dispo '+fmtSol(avail)+' + positions ouvertes '+fmtSol(openVal)+')</span>';
+    }catch(e){}
+  }
+  updateWalletTotal();
+  setInterval(updateWalletTotal,30000);
+})();
+</script>
+
 </body>
 </html>
