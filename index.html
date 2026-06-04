@@ -1309,8 +1309,8 @@ window.onload = function() {
     if(document.getElementById('buy-indic')) return;
     var d=document.createElement('div');
     d.id='buy-indic'; d.textContent=INFO;
-    d.style.cssText='color:#7d8590;font-size:11px;line-height:1.4;text-align:center;margin:10px 0 4px;opacity:.85;';
-    btn.parentNode.insertBefore(d, btn);
+    d.style.cssText='color:#7d8590;font-size:11px;line-height:1.4;text-align:center;margin:10px 0 4px;opacity:.85;width:100%;flex-basis:100%;';
+    var ftr=btn.parentNode; if(ftr&&ftr.parentNode){ftr.parentNode.insertBefore(d, ftr);}else{btn.parentNode.insertBefore(d, btn);}
   }
   function init(){
     var modal=document.getElementById('buy-modal'); if(!modal){return setTimeout(init,800);}
