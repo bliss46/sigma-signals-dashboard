@@ -1493,5 +1493,73 @@ window.onload = function() {
 })();
 </script>
 
+<!-- === Sigma Signals — Filtre stratégie d'achat (bloc additif autonome, v1) === -->
+<!-- D1/M1 · age <= 45min · liq >= 12k. Entree-side de la strategie (source+age+liq), tunable. -->
+<script>
+(function(){
+  try{
+    if(window.__sigmaStrat) return;
+    var SRC={D1:true,M1:true,C1:false,'02':false};
+    var MAX_AGE=45, MIN_LIQ=12000, hideOnly=false;
+    function parseAge(t){ t=(t||'').toLowerCase().replace('il y a','').trim();
+      var m=t.match(/(\d+(?:[.,]\d+)?)\s*(min|m|h|j|d)/); if(!m) return NaN;
+      var n=parseFloat(m[1].replace(',','.')),u=m[2];
+      if(u==='min'||u==='m')return n; if(u==='h')return n*60; return n*1440; }
+    function parseLiq(t){ t=(t||'').replace(/[$\s,]/g,'').toLowerCase();
+      var m=t.match(/(\d+(?:\.\d+)?)\s*([km]?)/); if(!m) return NaN;
+      var n=parseFloat(m[1]); if(m[2]==='k')n*=1e3; if(m[2]==='m')n*=1e6; return n; }
+    function eligible(tr){ var c=tr.children; if(!c||c.length<11) return null;
+      var src=(c[1].textContent||'').trim();
+      var age=parseAge(c[4].textContent), liq=parseLiq(c[7].textContent);
+      if(isNaN(liq)) return null;
+      return !!SRC[src] && !isNaN(age) && age<=MAX_AGE && liq>=MIN_LIQ; }
+    function boot(){
+      var tb=document.getElementById('tbody'); var table=tb&&tb.closest('table');
+      if(!table){ return setTimeout(boot,800); }
+      if(document.getElementById('strat-bar')) return;
+      var obs=null;
+      function apply(){
+        if(obs) obs.disconnect();
+        try{
+          var rows=tb.querySelectorAll('tr'), ok=0;
+          rows.forEach(function(tr){
+            if(!tr.children||tr.children.length<11) return;
+            var e=eligible(tr), dec=tr.children[10], pill=dec.querySelector('.strat-pill');
+            if(e===true){ ok++; tr.style.boxShadow='inset 4px 0 0 0 #16c784';
+              if(!pill){ pill=document.createElement('span'); pill.className='strat-pill';
+                pill.textContent='\uD83C\uDFAF '; pill.title='Eligible: '+(tr.children[1].textContent||'').trim()+' / age OK / liq OK';
+                dec.insertBefore(pill,dec.firstChild); }
+              tr.style.display=''; }
+            else { tr.style.boxShadow=''; if(pill) pill.remove();
+              tr.style.display=(hideOnly&&e===false)?'none':''; }
+          });
+          var cnt=document.getElementById('strat-count'); if(cnt) cnt.textContent=ok+' eligibles';
+        } finally { if(obs) obs.observe(tb,{childList:true,subtree:true,characterData:true}); }
+      }
+      var bar=document.createElement('div'); bar.id='strat-bar';
+      bar.style.cssText='display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:6px 0 10px;padding:8px 12px;border:1px solid #2a3f5f;border-radius:8px;background:#0e1726;font-size:13px;';
+      bar.innerHTML='<b style="color:#16c784">\uD83C\uDFAF Filtre strategie</b>'
+        +'<label style="cursor:pointer"><input type="checkbox" id="strat-hide"> Eligibles seulement</label>'
+        +'<span>Sources:</span>'
+        +'<label><input type="checkbox" data-src="D1" checked> D1</label>'
+        +'<label><input type="checkbox" data-src="M1" checked> M1</label>'
+        +'<label><input type="checkbox" data-src="C1"> C1</label>'
+        +'<label><input type="checkbox" data-src="02"> 02</label>'
+        +'<label>Age &le; <input type="number" id="strat-age" value="45" style="width:48px"> min</label>'
+        +'<label>Liq &ge; <input type="number" id="strat-liq" value="12" style="width:54px"> k</label>'
+        +'<span id="strat-count" style="margin-left:auto;color:#16c784;font-weight:600"></span>';
+      table.parentNode.insertBefore(bar,table);
+      bar.querySelector('#strat-hide').addEventListener('change',function(e){hideOnly=e.target.checked;apply();});
+      bar.querySelectorAll('input[data-src]').forEach(function(cb){cb.addEventListener('change',function(){SRC[cb.getAttribute('data-src')]=cb.checked;apply();});});
+      bar.querySelector('#strat-age').addEventListener('input',function(e){MAX_AGE=parseFloat(e.target.value)||45;apply();});
+      bar.querySelector('#strat-liq').addEventListener('input',function(e){MIN_LIQ=(parseFloat(e.target.value)||12)*1000;apply();});
+      obs=new MutationObserver(function(){ if(window.__stratPending) return; window.__stratPending=true; setTimeout(function(){window.__stratPending=false;apply();},120); });
+      window.__sigmaStrat={apply:apply}; apply();
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+  }catch(err){ console.error('sigma strat block', err); }
+})();
+</script>
+
 </body>
 </html>
