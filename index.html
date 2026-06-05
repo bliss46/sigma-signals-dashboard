@@ -1411,5 +1411,83 @@ window.onload = function() {
 })();
 </script>
 
+<script>
+/* ── ONGLET "📊 PERF SIGNAUX" — bloc autonome additif (s19) ──
+   Lecture seule : webhook S2 /api/n8n?hook=perf-data (jointure note×source × MFE/MAE).
+   N'altère aucun code existant ; s'appuie sur switchTab() générique. */
+(function(){
+  var PERF_WEBHOOK = '/api/n8n?hook=perf-data';
+  function col(v){ if(v==null) return 'var(--muted)'; v=parseFloat(v); return v>0?'var(--green)':(v<0?'var(--red)':'var(--muted)'); }
+  function srcCls(s){ s=(''+s).toLowerCase(); return s==='d1'?'src-d1':(s==='c1'?'src-c1':(s==='02'?'src-02':'')); }
+  function pct(v){ return v==null?'—':((parseFloat(v)>0?'+':'')+v+'%'); }
+  function srcBadge(s){ var c=srcCls(s); var st='padding:2px 6px;border-radius:4px;font-size:11px'+(c?'':';background:var(--bg3);color:var(--muted)'); return '<span class="'+c+'" style="'+st+'">'+s+'</span>'; }
+
+  /* 1) bouton d'onglet */
+  var tabs = document.querySelector('.tabs');
+  if (tabs && !document.getElementById('tab-perf-btn')) {
+    var b = document.createElement('button');
+    b.className = 'tab-btn'; b.id = 'tab-perf-btn'; b.textContent = '📊 Perf signaux';
+    b.onclick = function(){ switchTab('perf', b); loadPerf(); };
+    tabs.appendChild(b);
+  }
+  /* 2) panneau */
+  var pos = document.getElementById('tab-positions');
+  if (pos && !document.getElementById('tab-perf')) {
+    var d = document.createElement('div');
+    d.id = 'tab-perf'; d.className = 'tab-content';
+    d.innerHTML =
+      '<div class="controls" style="margin-bottom:10px"><button class="refresh-btn" onclick="loadPerf()">↻ Refresh</button> <span id="perf-upd" class="clock"></span></div>'
+      + '<div id="perf-total" style="margin:14px 0;font-size:13px;line-height:1.7"></div>'
+      + '<div id="perf-error" class="pl-error" style="display:none"></div>'
+      + '<div id="perf-body"></div>'
+      + '<p class="pl-note">MFE = pic maximal atteint sur l\'horizon (≈24 h) ; MAE = creux maximal. Mesuré par le moniteur G1 v2 depuis le 4 juin. Note &amp; source jointes depuis <code>signals</code> sur l\'adresse. <b>n</b> = nombre de signaux mesurés par bucket — prudence sur les petits n et le biais top-pick (note 7+ surreprésentée).</p>';
+    pos.parentNode.insertBefore(d, pos.nextSibling);
+  }
+
+  window.loadPerf = function(){
+    var err = document.getElementById('perf-error');
+    fetch(PERF_WEBHOOK).then(function(r){ return r.json(); }).then(function(j){
+      if(err) err.style.display='none';
+      var bk = (j && j.buckets) || [];
+      var total = bk.filter(function(x){return x.g_src==1 && x.g_note==1;})[0];
+      var bySrc = bk.filter(function(x){return x.g_src==0 && x.g_note==1;}).sort(function(a,b){return b.n-a.n;});
+      var byNote = bk.filter(function(x){return x.g_src==1 && x.g_note==0;}).sort(function(a,b){return b.note-a.note;});
+      var cells = bk.filter(function(x){return x.g_src==0 && x.g_note==0;});
+      var T = document.getElementById('perf-total');
+      T.innerHTML = total ? ('<b>Global</b> — n='+total.n+' · MFE méd <span style="color:'+col(total.mfe_med)+'">'+pct(total.mfe_med)+'</span> (moy '+pct(total.mfe_avg)+', max '+pct(total.mfe_max)+') · MAE méd <span style="color:var(--red)">'+pct(total.mae_med)+'</span> · TP '+total.tp_rate+'% · SL '+total.sl_rate+'% · 2x '+total.pct_2x+'%') : 'Aucune donnée mesurée.';
+      var hdr = '<th>n</th><th>MFE méd</th><th>MFE moy</th><th>MAE méd</th><th>TP %</th><th>SL %</th><th>2x %</th>';
+      function rowCells(x){ return '<td>'+x.n+'</td><td style="color:'+col(x.mfe_med)+'">'+pct(x.mfe_med)+'</td><td>'+pct(x.mfe_avg)+'</td><td style="color:var(--red)">'+pct(x.mae_med)+'</td><td>'+x.tp_rate+'%</td><td>'+x.sl_rate+'%</td><td>'+x.pct_2x+'%</td>'; }
+      var html = '';
+      html += '<div class="table-wrap" style="margin-bottom:18px"><div class="sig-count">Par note Claude</div><table><thead><tr><th>Note</th>'+hdr+'</tr></thead><tbody>';
+      byNote.forEach(function(x){ html += '<tr><td><b>'+x.note+'</b></td>'+rowCells(x)+'</tr>'; });
+      html += '</tbody></table></div>';
+      html += '<div class="table-wrap" style="margin-bottom:18px"><div class="sig-count">Par source</div><table><thead><tr><th>Source</th>'+hdr+'</tr></thead><tbody>';
+      bySrc.forEach(function(x){ html += '<tr><td>'+srcBadge(x.source)+'</td>'+rowCells(x)+'</tr>'; });
+      html += '</tbody></table></div>';
+      var srcs = bySrc.map(function(x){return x.source;});
+      var notes = byNote.map(function(x){return x.note;});
+      html += '<div class="table-wrap"><div class="sig-count">Matrice note × source — MFE médian (n)</div><table><thead><tr><th>Note \\ Src</th>';
+      srcs.forEach(function(s){ html += '<th>'+srcBadge(s)+'</th>'; });
+      html += '</tr></thead><tbody>';
+      notes.forEach(function(nt){
+        html += '<tr><td><b>'+nt+'</b></td>';
+        srcs.forEach(function(s){
+          var c = cells.filter(function(x){return x.note==nt && (''+x.source)==(''+s);})[0];
+          html += c ? ('<td style="color:'+col(c.mfe_med)+'">'+pct(c.mfe_med)+' <span style="color:var(--muted)">('+c.n+')</span></td>') : '<td style="color:var(--muted)">—</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('perf-body').innerHTML = html;
+      var n=new Date();
+      document.getElementById('perf-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
+    }).catch(function(e){
+      if(err){ err.style.display='block'; err.textContent='Erreur de chargement perf-data : '+((e&&e.message)||e); }
+      console.error('loadPerf error', e);
+    });
+  };
+})();
+</script>
+
 </body>
 </html>
