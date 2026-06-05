@@ -1450,7 +1450,8 @@ window.onload = function() {
       if(err) err.style.display='none';
       var bk = (j && j.buckets) || [];
       var total = bk.filter(function(x){return x.g_src==1 && x.g_note==1;})[0];
-      var bySrc = bk.filter(function(x){return x.g_src==0 && x.g_note==1;}).sort(function(a,b){return b.n-a.n;});
+      var bySrc = bk.filter(function(x){return x.g_src==0 && x.g_note==1 && x.mode!=='presence';}).sort(function(a,b){return b.n-a.n;});
+      var byPres = bk.filter(function(x){return x.mode==='presence';}).sort(function(a,b){return b.n-a.n;});
       var byNote = bk.filter(function(x){return x.g_src==1 && x.g_note==0;}).sort(function(a,b){return b.note-a.note;});
       var cells = bk.filter(function(x){return x.g_src==0 && x.g_note==0;});
       var T = document.getElementById('perf-total');
@@ -1477,6 +1478,9 @@ window.onload = function() {
         });
         html += '</tr>';
       });
+      html += '</tbody></table></div>';
+      html += '<div class="table-wrap" style="margin-bottom:18px"><div class="sig-count">Présence par source <span style="color:var(--muted);font-weight:400;font-size:12px">(chaque token compté dans toutes ses sources — double comptage assumé ; neutralise le biais de cadence)</span></div><table><thead><tr><th>Source</th>'+hdr+'</tr></thead><tbody>';
+      byPres.forEach(function(x){ html += '<tr><td>'+srcBadge(x.source)+'</td>'+rowCells(x)+'</tr>'; });
       html += '</tbody></table></div>';
       document.getElementById('perf-body').innerHTML = html;
       var n=new Date();
