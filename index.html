@@ -1509,7 +1509,7 @@ window.onload = function() {
 (function(){
   try{
     if(window.__sigmaStrat) return;
-    var SRC={D1:true,M1:true,C1:false,'02':false};
+    var SRC={D1:true,M1:true,C1:true,'02':false};
     var MAX_AGE=45, MIN_LIQ=12000, hideOnly=false;
     function parseAge(t){ t=(t||'').toLowerCase().replace('il y a','').trim();
       var m=t.match(/(\d+(?:[.,]\d+)?)\s*(min|m|h|j|d)/); if(!m) return NaN;
@@ -1553,7 +1553,7 @@ window.onload = function() {
         +'<span>Sources:</span>'
         +'<label><input type="checkbox" data-src="D1" checked> D1</label>'
         +'<label><input type="checkbox" data-src="M1" checked> M1</label>'
-        +'<label><input type="checkbox" data-src="C1"> C1</label>'
+        +'<label><input type="checkbox" data-src="C1" checked> C1</label>'
         +'<label><input type="checkbox" data-src="02"> 02</label>'
         +'<label>Age &le; <input type="number" id="strat-age" value="45" style="width:48px"> min</label>'
         +'<label>Liq &ge; <input type="number" id="strat-liq" value="12" style="width:54px"> k</label>'
