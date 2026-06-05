@@ -10,6 +10,7 @@ const ALLOW = {
   'positions-data': 'GET',
   'g1-data': 'GET',
   'prelaunch-data': 'GET',
+  'perf-data': 'GET',
 };
 
 export default async function handler(req, res) {
