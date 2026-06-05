@@ -1208,8 +1208,18 @@ function renderPositions(rows, live) {
     var entryMc = Number(p.entry_mcap);
     var isOpen = p.status === 'open';
     var curMc = isOpen ? (l && l.mcap != null ? l.mcap : null) : (p.exit_mcap != null ? Number(p.exit_mcap) : null);
-    var pnl = (entryMc>0 && curMc!=null) ? ((curMc-entryMc)/entryMc*100) : null;
-    var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'">'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%</span>' : '<span class="ch-neu">—</span>';
+    // P&L réalisé pondéré sur vente partielle (50% au partiel + 50% à la sortie finale) — piège #172
+    var hadPartial = (!isOpen && p.partial_done && p.partial_mcap != null && p.exit_mcap != null);
+    var realizedMc = hadPartial ? (0.5*Number(p.partial_mcap) + 0.5*Number(p.exit_mcap)) : curMc;
+    var pnl = (entryMc>0 && realizedMc!=null) ? ((realizedMc-entryMc)/entryMc*100) : null;
+    var partTip = '';
+    if(hadPartial && entryMc>0){
+      var legPart = (Number(p.partial_mcap)-entryMc)/entryMc*100;
+      var legRun = (Number(p.exit_mcap)-entryMc)/entryMc*100;
+      partTip = ' title="partiel 50% '+(legPart>=0?'+':'')+legPart.toFixed(1)+'% · runner '+(legRun>=0?'+':'')+legRun.toFixed(1)+'%"';
+    }
+    var pnlMark = hadPartial ? ' <span style="opacity:.55;font-size:.85em">½</span>' : '';
+    var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>';
     var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
     var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
