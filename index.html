@@ -441,6 +441,7 @@ tr:hover td { background: var(--bg1); }
           <th>Entrée (MC)</th>
           <th>MC actuel</th>
           <th>P&amp;L</th>
+          <th title="SOL net de friction round-trip (~10,7 % : entrée ~5,7 % + sortie ~5 %) — proche du wallet réel. Survol d'une valeur = brut MC.">Gain (SOL)</th>
           <th>Cibles</th>
           <th>Sortie</th>
           <th>Tx</th>
@@ -1187,7 +1188,7 @@ function fmtMc(v){ if(v==null||isNaN(v)) return '—'; v=Number(v); if(v>=1e6) r
 function loadPositions() {
   var err = document.getElementById('pos-error'); if(err) err.style.display='none';
   document.getElementById('pos-w-upd').textContent = '…';
-  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
+  document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="12" style="color:var(--muted);text-align:center;padding:24px"><span class="spin"></span> Chargement…</td></tr>';
   fetch(POSITIONS_WEBHOOK).then(function(r){ return r.json(); })
   .then(function(data){
     var rows = Array.isArray(data) ? data : (data && data.positions ? data.positions : []);
@@ -1212,7 +1213,7 @@ function renderPositions(rows, live) {
   var n = new Date();
   document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
   document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
-  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
+  if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="12" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
   var html = '';
   ordered.forEach(function(p){
     var l = live[String(p.mint||'').toLowerCase()] || null;
@@ -1239,6 +1240,12 @@ function renderPositions(rows, live) {
     }
     var pnlMark = (hadPartial || (isOpen && hasPartial)) ? ' <span style="opacity:.55;font-size:.85em">½</span>' : '';
     var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>';
+    // Gain/perte en SOL, NET de friction round-trip (~5,7% entrée + ~5% sortie ≈ 10,7%) — base « wallet réel » (choix s27)
+    var solIn = (p.sol_in==null||p.sol_in==='') ? null : Number(p.sol_in);
+    var F_IN=0.057, F_OUT=0.05;
+    var netSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*((1-F_IN)*(1+pnl/100)*(1-F_OUT)-1)) : null;
+    var grossSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*(pnl/100)) : null;
+    var solPnlHtml = (netSol!=null) ? ('<span class="'+(netSol>=0?'ch-pos':'ch-neg')+'" title="Net estimé · mise '+solIn.toFixed(3)+' SOL · friction round-trip ~10,7% (entrée ~5,7% + sortie ~5%)'+(grossSol!=null?(' · brut MC '+(grossSol>=0?'+':'')+grossSol.toFixed(4)+' SOL'):'')+'">'+(netSol>=0?'+':'')+netSol.toFixed(4)+'</span>') : '<span class="ch-neu">—</span>';
     var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
     var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
@@ -1256,7 +1263,7 @@ function renderPositions(rows, live) {
       '<td>'+statusHtml+'</td>'+
       '<td>'+fmtMc(entryMc)+'</td>'+
       '<td>'+(curMc!=null?fmtMc(curMc):'<span class="ch-neu">—</span>')+'</td>'+
-      '<td>'+pnlHtml+'</td>'+
+      '<td>'+pnlHtml+'</td>'+'<td>'+solPnlHtml+'</td>'+
       '<td>'+targetsHtml+'</td>'+
       '<td>'+exitHtml+'</td>'+
       '<td>'+txHtml+'</td>'+
@@ -1591,20 +1598,21 @@ window.onload = function() {
 </script>
 
 
-<!-- === Sigma Signals — Onglet "🎲 Fun facts" (bloc additif autonome, v1 s25) ===
+<!-- === Sigma Signals — Onglet "🎲 Fun facts" (bloc additif autonome, v2 s27 — 100% marché) ===
      Générateur d'hypothèses, PAS un livre de règles : petits échantillons → bruit probable, n affiché partout (⚠ = n<8).
-     Lecture seule, 100% client : g1-data (MFE/outcome) + signals-data (liq/change au scan) + positions-data (trades).
-     Ne modifie aucun code existant ; s'appuie sur switchTab() générique. -->
+     Lecture seule, 100% MARCHÉ : g1-data (MFE/outcome de TOUS les tokens détectés & suivis) + signals-data (liq/change au scan).
+     Aucune dépendance aux positions/trades. S'appuie sur switchTab() générique. -->
 <script>
 (function(){
   if(window.__sigmaFun) return; window.__sigmaFun = true;
-  var EP_G1='/api/n8n?hook=g1-data', EP_SIG='/api/n8n?hook=signals-data', EP_POS='/api/n8n?hook=positions-data';
+  var EP_G1='/api/n8n?hook=g1-data', EP_SIG='/api/n8n?hook=signals-data';
 
   function num(v){ if(v==null||v==='') return null; var n=parseFloat(v); return isFinite(n)?n:null; }
   function median(a){ a=a.filter(function(x){return x!=null && isFinite(x);}).slice().sort(function(x,y){return x-y;}); if(!a.length) return null; var m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
   function pct1(v){ return v==null?'—':((v>=0?'+':'')+v.toFixed(1)+'%'); }
   function col(v){ if(v==null) return 'var(--muted)'; return v>0?'var(--green)':(v<0?'var(--red)':'var(--muted)'); }
   function lowN(n){ return n<8 ? ' <span style="color:var(--orange)" title="faible échantillon">⚠</span>' : ''; }
+  function esc(s){ return (''+s).replace(/[<>&]/g,''); }
   function hourZ(iso){ try{ return Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Zurich',hour:'2-digit',hourCycle:'h23'}).format(new Date(iso))); }catch(e){ return null; } }
   function arr(d){ if(Array.isArray(d)) return d; if(!d) return []; return d.checks||d.signals||d.positions||d.rows||d.data||[]; }
   function tableWrap(title, headCells, rows){ return '<div class="table-wrap" style="margin-bottom:6px"><div class="sig-count">'+title+'</div><table><thead><tr>'+headCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>'; }
@@ -1622,7 +1630,7 @@ window.onload = function() {
     var d=document.createElement('div'); d.id='tab-funfacts'; d.className='tab-content';
     d.innerHTML =
       '<div class="controls" style="margin-bottom:10px"><button class="refresh-btn" onclick="loadFunFacts()">↻ Refresh</button> <span id="ff-upd" class="clock"></span></div>'
-      + '<p class="pl-note" style="border-left:3px solid var(--accent);padding-left:10px"><b>⚠ Générateur d\'hypothèses, pas un livre de règles.</b> Échantillons faibles (~30 trades, ~150 signaux mesurés) → la plupart des effets à une variable sont du bruit. Le <b>n</b> est affiché partout (<span style="color:var(--orange)">⚠</span> = n&lt;8, prudence maximale). À lire comme des pistes, pas des certitudes.</p>'
+      + '<p class="pl-note" style="border-left:3px solid var(--accent);padding-left:10px"><b>⚠ Générateur d\'hypothèses, pas un livre de règles.</b> 100% basé sur le <b>marché qu\'on a récolté</b> : tous les tokens détectés et suivis par le moniteur G1 (~150 signaux mesurés), pas sur tes achats. Le <b>n</b> est affiché partout (<span style="color:var(--orange)">⚠</span> = n&lt;8). À lire comme des pistes, pas des certitudes.</p>'
       + '<div id="ff-error" class="pl-error" style="display:none"></div>'
       + '<div id="ff-body"></div>';
     anchor.parentNode.insertBefore(d, anchor.nextSibling);
@@ -1633,12 +1641,11 @@ window.onload = function() {
     var F=window.fetch.bind(window);
     Promise.all([
       F(EP_G1,{cache:'no-store'}).then(function(r){return r.json();}),
-      F(EP_SIG,{cache:'no-store'}).then(function(r){return r.json();}),
-      F(EP_POS,{cache:'no-store'}).then(function(r){return r.json();})
+      F(EP_SIG,{cache:'no-store'}).then(function(r){return r.json();})
     ]).then(function(res){
-      var g=arr(res[0]), s=arr(res[1]), p=arr(res[2]);
+      var g=arr(res[0]), s=arr(res[1]);
       var meas=g.filter(function(r){ return r.peak_pct!=null && r.signal_at; }).map(function(r){
-        return { addr:(''+(r.address||'')).toLowerCase(), at:r.signal_at, peakAt:r.peak_at, mfe:num(r.peak_pct) };
+        return { addr:(''+(r.address||'')).toLowerCase(), sym:(r.symbol||r.name||''), at:r.signal_at, peakAt:r.peak_at, mfe:num(r.peak_pct) };
       }).filter(function(r){ return r.mfe!=null; });
       var sigBy={}; s.forEach(function(r){ var a=(''+(r.address||'')).toLowerCase(); if(a) sigBy[a]={liq:num(r.liq_usd), ch:num(r.change_24h)}; });
 
@@ -1653,26 +1660,22 @@ window.onload = function() {
       html += tableWrap('🕐 Tranches horaires → MFE / taux 2× <span style="color:var(--muted);font-weight:400">(heure suisse, signaux mesurés)</span>', '<th>Tranche</th><th>n</th><th>MFE méd</th><th>2× %</th>', rowsH);
       html += note((bestBand?('Meilleure tranche (n≥8) : <b>'+bestBand.label+'</b> · MFE méd '+pct1(median(bestBand.mfe))+'. '):'')+'<span style="color:var(--muted)">A priori connu : activité memecoin ~20-23h (prime US) — à confronter ici.</span>');
 
-      /* 2) on laisse combien sur la table (trades fermés) */
-      var closed=p.filter(function(x){ return x.status==='closed' && num(x.entry_mcap)>0; });
-      var lt=closed.map(function(x){
-        var e=num(x.entry_mcap), pk=num(x.peak_mcap), ex=num(x.exit_mcap), pm=num(x.partial_mcap);
-        var peakPnl = pk!=null? (pk-e)/e*100 : null;
-        var realized = (x.partial_done && pm!=null && ex!=null) ? (0.5*((pm-e)/e*100)+0.5*((ex-e)/e*100)) : (ex!=null?(ex-e)/e*100:null);
-        return { peak:peakPnl, real:realized, gap:(peakPnl!=null&&realized!=null)?(peakPnl-realized):null };
-      });
-      var medPeak=median(lt.map(function(x){return x.peak;})), medReal=median(lt.map(function(x){return x.real;})), medGap=median(lt.map(function(x){return x.gap;}));
-      var capture=(medPeak&&medPeak>0&&medReal!=null)?Math.round(100*medReal/medPeak):null;
-      var fumbled=lt.filter(function(x){ return x.peak!=null&&x.peak>=100&&x.real!=null&&x.real<50; }).length;
-      var rows2='<tr><td>Pic médian atteint</td><td style="color:'+col(medPeak)+'">'+pct1(medPeak)+'</td></tr>'
-        +'<tr><td>Sortie médiane réalisée</td><td style="color:'+col(medReal)+'">'+pct1(medReal)+'</td></tr>'
-        +'<tr><td>Laissé sur la table (médiane)</td><td style="color:var(--red)">'+pct1(medGap)+'</td></tr>'
-        +'<tr><td>Taux de capture du pic</td><td>'+(capture!=null?capture+'%':'—')+'</td></tr>'
-        +'<tr><td>Pics ≥+100% sortis &lt;+50%</td><td>'+fumbled+' / '+closed.length+'</td></tr>';
-      html += tableWrap('💸 « On laisse combien sur la table ? » <span style="color:var(--muted);font-weight:400">(n='+closed.length+' trades fermés)</span>', '<th>Indicateur</th><th>Valeur</th>', rows2);
-      html += note('Écart pic → sortie = ce que le trailing/partiel laisse filer. <b>Input direct pour la calibration TP/trailing (priorité #1)</b> : capture basse ⇒ trailing trop lâche ou partiel trop précoce.');
+      /* 2) distribution réelle des pics du marché (tous les tokens détectés & suivis par G1) */
+      var nM=meas.length;
+      var medMfe=median(meas.map(function(r){return r.mfe;}));
+      var thr=[20,50,100,250];
+      var rowsD='<tr><td>Pic médian (tous)</td><td colspan="2" style="color:'+col(medMfe)+'">'+pct1(medMfe)+'</td></tr>'
+        + thr.map(function(t){ var c=meas.filter(function(r){return r.mfe>=t;}).length; return '<tr><td>≥ +'+t+'%</td><td>'+c+'</td><td>'+(nM?Math.round(100*c/nM):0)+'%</td></tr>'; }).join('');
+      html += tableWrap('🎯 Distribution des pics du marché <span style="color:var(--muted);font-weight:400">(tous les tokens détectés &amp; suivis, n='+nM+')</span>', '<th>Pic atteint (MFE)</th><th>n</th><th>part</th>', rowsD);
+      html += note('Ce que <b>l\'univers détecté</b> a réellement offert sur ~24 h, achats ou non. Met en perspective le constat #196 : très peu de pics ≥+100% même côté marché — le levier est à l\'entrée (sélection), pas seulement à la sortie.');
 
-      /* 3) temps jusqu'au pic */
+      /* 3) top pics détectés (les plus fortes montées vues, achetées ou non) */
+      var top=meas.slice().sort(function(a,b){return b.mfe-a.mfe;}).slice(0,8);
+      var rowsT=top.map(function(r){ var dn=esc(r.sym)||'token'; var ds=r.addr?('<a class="dex-link" href="https://dexscreener.com/solana/'+r.addr+'" target="_blank">'+dn+' ↗</a>'):dn; var dt='—'; try{ dt=new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Zurich',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(r.at)); }catch(e){} return '<tr><td>'+ds+'</td><td style="color:'+col(r.mfe)+'">'+pct1(r.mfe)+'</td><td style="color:var(--muted)">'+dt+'</td></tr>'; }).join('');
+      html += tableWrap('🚀 Top pics détectés <span style="color:var(--muted);font-weight:400">(plus gros MFE captés en détection)</span>', '<th>Token</th><th>Pic max</th><th>Détecté le</th>', rowsT);
+      html += note('Les plus fortes montées <b>vues par le pipeline</b> (G1), achetées ou non. Montre ce que la détection attrape — et ce qu\'on rate à l\'exécution.');
+
+      /* 4) temps jusqu'au pic */
       var ttp=meas.filter(function(r){ return r.peakAt && r.mfe>0; }).map(function(r){ return (new Date(r.peakAt)-new Date(r.at))/60000; }).filter(function(m){ return isFinite(m)&&m>=0; });
       var medTtp=median(ttp);
       var tb=[[0,5,'0–5 min'],[5,15,'5–15 min'],[15,30,'15–30 min'],[30,60,'30–60 min'],[60,120,'1–2 h'],[120,1e9,'> 2 h']];
@@ -1680,7 +1683,7 @@ window.onload = function() {
       html += tableWrap('⏱️ Temps jusqu\'au pic <span style="color:var(--muted);font-weight:400">(n='+ttp.length+' signaux ayant monté)</span>', '<th>Délai</th><th>n</th><th>part</th>', rows3);
       html += note('Médiane : <b>'+(medTtp!=null?Math.round(medTtp)+' min':'—')+'</b> jusqu\'au pic. <span style="color:var(--muted)">Informe la durée de détention ; résolution ≈5 min (cadence du moniteur G1).</span>');
 
-      /* 4) Δ24h au scan + liquidité au scan → issue (jointure signals × mesures) */
+      /* 5) Δ24h au scan + liquidité au scan → issue (jointure signals × mesures) */
       function bucketize(getval, edges){ var bk=edges.concat([null]).map(function(){ return {mfe:[],hit:0,n:0}; });
         meas.forEach(function(r){ var sig=sigBy[r.addr]; if(!sig) return; var v=getval(sig); if(v==null) return; var idx=edges.length; for(var i=0;i<edges.length;i++){ if(v<edges[i]){ idx=i; break; } } bk[idx].mfe.push(r.mfe); bk[idx].n++; if(r.mfe>=100) bk[idx].hit++; }); return bk; }
       function bucketRows(bk, labels){ return bk.map(function(x,i){ var med=median(x.mfe); return '<tr><td>'+labels[i]+'</td><td>'+x.n+lowN(x.n)+'</td><td style="color:'+col(med)+'">'+pct1(med)+'</td><td>'+(x.n?Math.round(100*x.hit/x.n):0)+'%</td></tr>'; }).join(''); }
@@ -1724,9 +1727,9 @@ window.onload = function() {
       if(!(p.status==='closed'&&p.partial_done)){ tr.setAttribute('data-ff-exit','1'); return; }
       var e=num(p.entry_mcap),pm=num(p.partial_mcap),ex=num(p.exit_mcap),pk=num(p.peak_mcap);
       var pPart=pct(e,pm),pRun=pct(e,ex),pPk=pct(e,pk);
-      var tds=tr.querySelectorAll('td'); if(tds.length<8){ return; }
+      var tds=tr.querySelectorAll('td'); if(tds.length<9){ return; }
       if(tds[5]&&!tds[5].querySelector('.ff-legs')){ var legs=document.createElement('div'); legs.className='ff-legs'; legs.style.cssText='font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3'; legs.innerHTML='½ <span style="color:'+col(pPart)+'">'+fmt(pPart)+'</span> · runner <span style="color:'+col(pRun)+'">'+fmt(pRun)+'</span>'+(pPk!=null?(' · pic <span style="color:'+col(pPk)+'">'+fmt(pPk)+'</span>'):''); tds[5].appendChild(legs); }
-      if(tds[7]&&!tds[7].querySelector('.ff-exitpct')){ tds[7].innerHTML=''; var s1=document.createElement('span'); s1.textContent=reasonLabel(p.exit_reason); var s2=document.createElement('span'); s2.className='ff-exitpct'; s2.style.cssText='color:'+col(pRun)+';margin-left:4px'; s2.textContent='· '+fmt(pRun); tds[7].appendChild(s1); tds[7].appendChild(s2); }
+      if(tds[8]&&!tds[8].querySelector('.ff-exitpct')){ tds[8].innerHTML=''; var s1=document.createElement('span'); s1.textContent=reasonLabel(p.exit_reason); var s2=document.createElement('span'); s2.className='ff-exitpct'; s2.style.cssText='color:'+col(pRun)+';margin-left:4px'; s2.textContent='· '+fmt(pRun); tds[8].appendChild(s1); tds[8].appendChild(s2); }
       tr.setAttribute('data-ff-exit','1');
     }); }
   function enhance(){ renameHeader(); var tb=getTbody(); if(!tb) return; var now=Date.now();
