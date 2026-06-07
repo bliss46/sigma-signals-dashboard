@@ -1701,5 +1701,44 @@ window.onload = function() {
 })();
 </script>
 
+
+<!-- === Sigma Signals — Positions : sorties partielles lisibles (bloc additif autonome, s25 #194) ===
+     Rend visibles les 2 jambes d'une sortie partielle (½ + runner) + le % de sortie du runner dans la colonne Sortie,
+     et clarifie l'en-tête "MC actuel" -> "MC actuel / sortie". 100% client, idempotent, MutationObserver avec garde anti-boucle (#154). -->
+<script>
+(function(){
+  if(window.__sigmaExits) return; window.__sigmaExits=true;
+  var cache=null, cacheAt=0, busy=false, obs=null;
+  function num(v){ if(v==null||v==='') return null; var n=parseFloat(v); return isFinite(n)?n:null; }
+  function pct(e,m){ return (e>0&&m!=null&&isFinite(m))?(((m-e)/e*100)):null; }
+  function fmt(v){ return v==null?'—':((v>=0?'+':'')+v.toFixed(1)+'%'); }
+  function col(v){ if(v==null) return 'var(--muted)'; return v>0?'var(--green)':(v<0?'var(--red)':'var(--muted)'); }
+  function reasonLabel(r){ r=(''+(r||'')); var M={trailing_after_tp:'trailing après TP',trailing_stop:'trailing',take_profit:'take profit',stop_loss:'stop loss',manual_sell:'vente manuelle',expired:'expiré'}; return M[r]||r; }
+  function rowKey(tr){ var tds=tr.querySelectorAll('td'); if(!tds.length) return null; var t=(tds[0].textContent||'').trim(); var sym=(tds[1]?tds[1].textContent:'').trim(); var parts=t.split('…'); var pre=(parts[0]||'').replace(/[^1-9A-HJ-NP-Za-km-z]/g,''); var suf=(parts[1]||'').replace(/[^1-9A-HJ-NP-Za-km-z]/g,''); return {pre:pre,suf:suf,sym:sym}; }
+  function match(arr,k){ if(!k) return null; var i; for(i=0;i<arr.length;i++){ var m=(''+(arr[i].mint||'')); if(k.pre&&k.suf&&m.indexOf(k.pre)===0&&m.slice(-k.suf.length)===k.suf) return arr[i]; } for(i=0;i<arr.length;i++){ if(k.sym&&(''+(arr[i].symbol||''))===k.sym) return arr[i]; } return null; }
+  function getTbody(){ var t=document.querySelector('#tab-positions table'); return t?t.querySelector('tbody'):null; }
+  function renameHeader(){ var t=document.querySelector('#tab-positions table'); if(!t) return; t.querySelectorAll('thead th').forEach(function(th){ if(/^MC actuel/i.test(th.textContent)&&th.textContent.indexOf('sortie')===-1){ th.innerHTML=th.innerHTML.replace('MC actuel','MC actuel / sortie'); } }); }
+  function applyRows(arr){ var tb=getTbody(); if(!tb) return; tb.querySelectorAll('tr').forEach(function(tr){
+      if(tr.getAttribute('data-ff-exit')==='1') return;
+      var p=match(arr,rowKey(tr)); if(!p) return;
+      if(!(p.status==='closed'&&p.partial_done)){ tr.setAttribute('data-ff-exit','1'); return; }
+      var e=num(p.entry_mcap),pm=num(p.partial_mcap),ex=num(p.exit_mcap),pk=num(p.peak_mcap);
+      var pPart=pct(e,pm),pRun=pct(e,ex),pPk=pct(e,pk);
+      var tds=tr.querySelectorAll('td'); if(tds.length<8){ return; }
+      if(tds[5]&&!tds[5].querySelector('.ff-legs')){ var legs=document.createElement('div'); legs.className='ff-legs'; legs.style.cssText='font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3'; legs.innerHTML='½ <span style="color:'+col(pPart)+'">'+fmt(pPart)+'</span> · runner <span style="color:'+col(pRun)+'">'+fmt(pRun)+'</span>'+(pPk!=null?(' · pic <span style="color:'+col(pPk)+'">'+fmt(pPk)+'</span>'):''); tds[5].appendChild(legs); }
+      if(tds[7]&&!tds[7].querySelector('.ff-exitpct')){ tds[7].innerHTML=''; var s1=document.createElement('span'); s1.textContent=reasonLabel(p.exit_reason); var s2=document.createElement('span'); s2.className='ff-exitpct'; s2.style.cssText='color:'+col(pRun)+';margin-left:4px'; s2.textContent='· '+fmt(pRun); tds[7].appendChild(s1); tds[7].appendChild(s2); }
+      tr.setAttribute('data-ff-exit','1');
+    }); }
+  function enhance(){ renameHeader(); var tb=getTbody(); if(!tb) return; var now=Date.now();
+    var go=function(c){ var disc=false; if(obs){ try{obs.disconnect();}catch(e){} disc=true; } try{ applyRows(c.arr); } finally { if(disc){ try{obs.observe(tb,{childList:true,subtree:true});}catch(e){} } } };
+    if(cache && (now-cacheAt)<8000){ go(cache); return; }
+    fetch('/api/n8n?hook=positions-data',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){ var arr=Array.isArray(d)?d:(d.positions||[]); cache={arr:arr}; cacheAt=Date.now(); go(cache); }).catch(function(){});
+  }
+  function install(){ var tb=getTbody(); if(tb && !obs){ obs=new MutationObserver(function(){ if(!busy){ busy=true; setTimeout(function(){ busy=false; enhance(); },80); } }); obs.observe(tb,{childList:true,subtree:true}); } enhance(); }
+  if(typeof window.loadPositions==='function'){ var orig=window.loadPositions; window.loadPositions=function(){ var r=orig.apply(this,arguments); setTimeout(install,300); setTimeout(enhance,900); return r; }; }
+  setInterval(enhance, 4000);
+  setTimeout(install, 600);
+})();
+</script>
 </body>
 </html>
