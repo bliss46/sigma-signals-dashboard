@@ -1081,8 +1081,19 @@ function confirmBuy(){
       st.className = 'buy-status ok';
       setTimeout(closeBuy, 2500);
     } else {
-      st.textContent = '❌ ' + ((res.j && res.j.error) || ('Erreur ' + res.status));
-      st.className = 'buy-status err';
+      // motif de refus rug-gate affiché en liste — piège #192 (P1 Respond OK forwarde reasons[]+rug_gate)
+      var j = res.j || {};
+      var isRug = j.rug_gate === true || (typeof j.error === 'string' && j.error.lastIndexOf('rug-gate', 0) === 0);
+      if(isRug){
+        var rs = (Array.isArray(j.reasons) && j.reasons.length) ? j.reasons : String(j.error||'').replace(/^rug-gate:\s*/,'').split(/,\s*/).filter(Boolean);
+        var esc = function(x){ return String(x).replace(/[<>&]/g, function(c){ return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;'; }); };
+        var items = rs.length ? rs.map(function(r){ return '<li>'+esc(r)+'</li>'; }).join('') : '<li>raison non précisée</li>';
+        st.innerHTML = '<div style="font-weight:600;margin-bottom:4px">⛔ Achat refusé par le rug-gate</div><ul style="margin:0;padding-left:18px;text-align:left;line-height:1.5">'+items+'</ul>';
+        st.className = 'buy-status err';
+      } else {
+        st.textContent = '❌ ' + (j.error || ('Erreur ' + res.status));
+        st.className = 'buy-status err';
+      }
       btn.disabled = false;
     }
   })
