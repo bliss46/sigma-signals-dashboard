@@ -1715,6 +1715,15 @@ window.onload = function() {
       if(cb && !cb.checked){ cb.checked=true; cb.dispatchEvent(new Event('change')); }
       flipped=true;
     }
+    // anti-flicker : appliquer filtre + grisage DANS le meme cycle que le rendu (avant paint),
+    // sinon renderTable() (refresh 30s) repeint TOUTES les lignes brutes puis le filtre se replie apres coup.
+    if(!window.__sigmaFocusWrap && typeof window.renderTable==='function'){
+      window.__sigmaFocusWrap=true;
+      var _rt=window.renderTable;
+      window.renderTable=function(){ var r=_rt.apply(this,arguments);
+        try{ if(window.__sigmaStrat&&window.__sigmaStrat.apply) window.__sigmaStrat.apply(); pass(); }catch(e){}
+        return r; };
+    }
     setInterval(pass, 3000); pass();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
