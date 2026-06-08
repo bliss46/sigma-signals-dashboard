@@ -85,6 +85,8 @@ input[type=range] { width: 80px; accent-color: var(--accent); }
 /* TABLE */
 .table-wrap { padding: 0 20px 20px; overflow-x: auto; }
 .sig-count { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.ff-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; letter-spacing: .2px; }
+.ff-title span { font-size: 12px; }
 table { width: 100%; border-collapse: collapse; min-width: 900px; }
 th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; white-space: nowrap; user-select: none; }
 th:hover { color: var(--text); }
@@ -1615,7 +1617,7 @@ window.onload = function() {
   function esc(s){ return (''+s).replace(/[<>&]/g,''); }
   function hourZ(iso){ try{ return Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Zurich',hour:'2-digit',hourCycle:'h23'}).format(new Date(iso))); }catch(e){ return null; } }
   function arr(d){ if(Array.isArray(d)) return d; if(!d) return []; return d.checks||d.signals||d.positions||d.rows||d.data||[]; }
-  function tableWrap(title, headCells, rows){ return '<div class="table-wrap" style="margin-bottom:6px"><div class="sig-count">'+title+'</div><table><thead><tr>'+headCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+  function tableWrap(title, headCells, rows){ return '<div class="table-wrap" style="margin-bottom:6px"><div class="ff-title">'+title+'</div><table><thead><tr>'+headCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>'; }
   function note(t){ return '<p class="pl-note" style="margin-top:-2px;margin-bottom:18px">'+t+'</p>'; }
 
   var tabs=document.querySelector('.tabs');
@@ -1651,6 +1653,8 @@ window.onload = function() {
 
       var html='';
 
+      html += '<p class="pl-note" style="margin:0 0 16px;line-height:1.5">Ces tableaux décrivent <b>le marché entier</b> : tous les tokens que le système a repérés et suivis pendant ~24 h, <i>qu\'on les ait achetés ou non</i>. Deux mots à connaître : le <b>pic</b> (aussi noté <i>MFE</i>) = le plus haut qu\'un token est monté après sa détection, en % ; <b>2×</b> = a fait au moins +100 % (a doublé).</p>';
+
       /* 1) tranches horaires (bandes 4h, heure suisse) */
       var bands=[[0,4,'00–04h'],[4,8,'04–08h'],[8,12,'08–12h'],[12,16,'12–16h'],[16,20,'16–20h'],[20,24,'20–24h']];
       var byBand=bands.map(function(bd){ return {label:bd[2], lo:bd[0], hi:bd[1], mfe:[], hit:0, n:0}; });
@@ -1658,7 +1662,7 @@ window.onload = function() {
       var rowsH=byBand.map(function(x){ var med=median(x.mfe); return '<tr><td>'+x.label+'</td><td>'+x.n+lowN(x.n)+'</td><td style="color:'+col(med)+'">'+pct1(med)+'</td><td>'+(x.n?Math.round(100*x.hit/x.n):0)+'%</td></tr>'; }).join('');
       var bestBand=byBand.filter(function(x){return x.n>=8;}).sort(function(a,b){return (median(b.mfe)==null?-1e9:median(b.mfe))-(median(a.mfe)==null?-1e9:median(a.mfe));})[0];
       html += tableWrap('🕐 Tranches horaires → MFE / taux 2× <span style="color:var(--muted);font-weight:400">(heure suisse, signaux mesurés)</span>', '<th>Tranche</th><th>n</th><th>MFE méd</th><th>2× %</th>', rowsH);
-      html += note((bestBand?('Meilleure tranche (n≥8) : <b>'+bestBand.label+'</b> · MFE méd '+pct1(median(bestBand.mfe))+'. '):'')+'<span style="color:var(--muted)">A priori connu : activité memecoin ~20-23h (prime US) — à confronter ici.</span>');
+      html += note((bestBand?('Meilleure plage horaire (n≥8) : <b>'+bestBand.label+'</b>, pic médian '+pct1(median(bestBand.mfe))+'. '):'')+'<span style="color:var(--muted)">Heure de détection vs hauteur du pic. On s\'attend à plus d\'activité ~20-23 h (soirée US) — à vérifier ici.</span>');
 
       /* 2) distribution réelle des pics du marché (tous les tokens détectés & suivis par G1) */
       var nM=meas.length;
@@ -1666,14 +1670,14 @@ window.onload = function() {
       var thr=[20,50,100,250];
       var rowsD='<tr><td>Pic médian (tous)</td><td colspan="2" style="color:'+col(medMfe)+'">'+pct1(medMfe)+'</td></tr>'
         + thr.map(function(t){ var c=meas.filter(function(r){return r.mfe>=t;}).length; return '<tr><td>≥ +'+t+'%</td><td>'+c+'</td><td>'+(nM?Math.round(100*c/nM):0)+'%</td></tr>'; }).join('');
-      html += tableWrap('🎯 Distribution des pics du marché <span style="color:var(--muted);font-weight:400">(tous les tokens détectés &amp; suivis, n='+nM+')</span>', '<th>Pic atteint (MFE)</th><th>n</th><th>part</th>', rowsD);
-      html += note('Ce que <b>l\'univers détecté</b> a réellement offert sur ~24 h, achats ou non. Met en perspective le constat #196 : très peu de pics ≥+100% même côté marché — le levier est à l\'entrée (sélection), pas seulement à la sortie.');
+      html += tableWrap('🎯 Distribution des pics du marché <span style="color:var(--muted);font-weight:400">(tous les tokens repérés, n='+nM+')</span>', '<th>Pic atteint</th><th>n</th><th>part</th>', rowsD);
+      html += note('Sur les <b>'+nM+' tokens repérés</b>, combien sont montés d\'au moins +20 %, +50 %, +100 % ou +250 % à leur meilleur moment. À lire : la moitié plafonne vers +'+(medMfe!=null?Math.round(medMfe):'?')+' %, et presque aucun ne double. Le très gros gain est donc <b>rare même dans le marché</b> — ce qui compte le plus, c\'est <b>quel token on choisit d\'acheter</b>, pas le moment où l\'on revend (constat #196).');
 
       /* 3) top pics détectés (les plus fortes montées vues, achetées ou non) */
       var top=meas.slice().sort(function(a,b){return b.mfe-a.mfe;}).slice(0,8);
       var rowsT=top.map(function(r){ var dn=esc(r.sym)||'token'; var ds=r.addr?('<a class="dex-link" href="https://dexscreener.com/solana/'+r.addr+'" target="_blank">'+dn+' ↗</a>'):dn; var dt='—'; try{ dt=new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Zurich',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(r.at)); }catch(e){} return '<tr><td>'+ds+'</td><td style="color:'+col(r.mfe)+'">'+pct1(r.mfe)+'</td><td style="color:var(--muted)">'+dt+'</td></tr>'; }).join('');
       html += tableWrap('🚀 Top pics détectés <span style="color:var(--muted);font-weight:400">(plus gros MFE captés en détection)</span>', '<th>Token</th><th>Pic max</th><th>Détecté le</th>', rowsT);
-      html += note('Les plus fortes montées <b>vues par le pipeline</b> (G1), achetées ou non. Montre ce que la détection attrape — et ce qu\'on rate à l\'exécution.');
+      html += note('Les plus fortes montées <b>repérées par le système</b> sur la période, achetées ou non. Montre ce que la détection attrape — et ce qu\'on peut rater au moment d\'acheter ou de revendre.');
 
       /* 4) temps jusqu'au pic */
       var ttp=meas.filter(function(r){ return r.peakAt && r.mfe>0; }).map(function(r){ return (new Date(r.peakAt)-new Date(r.at))/60000; }).filter(function(m){ return isFinite(m)&&m>=0; });
@@ -1681,18 +1685,18 @@ window.onload = function() {
       var tb=[[0,5,'0–5 min'],[5,15,'5–15 min'],[15,30,'15–30 min'],[30,60,'30–60 min'],[60,120,'1–2 h'],[120,1e9,'> 2 h']];
       var rows3=tb.map(function(bd){ var c=ttp.filter(function(m){return m>=bd[0]&&m<bd[1];}).length; return '<tr><td>'+bd[2]+'</td><td>'+c+'</td><td>'+(ttp.length?Math.round(100*c/ttp.length):0)+'%</td></tr>'; }).join('');
       html += tableWrap('⏱️ Temps jusqu\'au pic <span style="color:var(--muted);font-weight:400">(n='+ttp.length+' signaux ayant monté)</span>', '<th>Délai</th><th>n</th><th>part</th>', rows3);
-      html += note('Médiane : <b>'+(medTtp!=null?Math.round(medTtp)+' min':'—')+'</b> jusqu\'au pic. <span style="color:var(--muted)">Informe la durée de détention ; résolution ≈5 min (cadence du moniteur G1).</span>');
+      html += note('Médiane : <b>'+(medTtp!=null?Math.round(medTtp)+' min':'—')+'</b> entre la détection et le plus haut. <span style="color:var(--muted)">Donne une idée de la durée de détention utile ; mesuré toutes les ~5 min.</span>');
 
       /* 5) Δ24h au scan + liquidité au scan → issue (jointure signals × mesures) */
       function bucketize(getval, edges){ var bk=edges.concat([null]).map(function(){ return {mfe:[],hit:0,n:0}; });
         meas.forEach(function(r){ var sig=sigBy[r.addr]; if(!sig) return; var v=getval(sig); if(v==null) return; var idx=edges.length; for(var i=0;i<edges.length;i++){ if(v<edges[i]){ idx=i; break; } } bk[idx].mfe.push(r.mfe); bk[idx].n++; if(r.mfe>=100) bk[idx].hit++; }); return bk; }
       function bucketRows(bk, labels){ return bk.map(function(x,i){ var med=median(x.mfe); return '<tr><td>'+labels[i]+'</td><td>'+x.n+lowN(x.n)+'</td><td style="color:'+col(med)+'">'+pct1(med)+'</td><td>'+(x.n?Math.round(100*x.hit/x.n):0)+'%</td></tr>'; }).join(''); }
       var chB=bucketize(function(s){return s.ch;}, [0,100,300,1000]);
-      html += tableWrap('📈 Variation 24h <i>au scan</i> → MFE / 2× <span style="color:var(--muted);font-weight:400">(teste la pénalité post-pump)</span>', '<th>Δ24h au scan</th><th>n</th><th>MFE méd</th><th>2× %</th>', bucketRows(chB, ['&lt;0%','0–100%','100–300%','300–1000%','&gt;1000%']));
+      html += tableWrap('📈 Variation 24h <i>au scan</i> → MFE / 2× <span style="color:var(--muted);font-weight:400">(le token avait-il déjà beaucoup monté avant qu\'on le repère ?)</span>', '<th>Δ24h au scan</th><th>n</th><th>MFE méd</th><th>2× %</th>', bucketRows(chB, ['&lt;0%','0–100%','100–300%','300–1000%','&gt;1000%']));
       var liqB=bucketize(function(s){return s.liq;}, [15000,30000,60000,150000]);
       var liqN=liqB.reduce(function(a,x){return a+x.n;},0);
       html += tableWrap('💧 Liquidité <i>au scan</i> → MFE / 2× <span style="color:var(--muted);font-weight:400">(liq_usd loggée depuis le 6 juin → couverture partielle, n='+liqN+')</span>', '<th>Liq au scan</th><th>n</th><th>MFE méd</th><th>2× %</th>', bucketRows(liqB, ['&lt;15k','15–30k','30–60k','60–150k','&gt;150k']));
-      html += '<p class="pl-note">MFE = pic max sur ~24 h (moniteur G1). « 2× % » = part des signaux ayant touché +100%. Jointure <code>signals</code> × <code>pending_checks</code> sur l\'adresse, côté client. Tout ceci est exploratoire — ne pas sur-ajuster sur de petits n.</p>';
+      html += '<p class="pl-note">Les deux tableaux ci-dessus croisent l\'état du token <i>au moment du scan</i> (sa variation sur 24 h, sa liquidité) avec la hauteur de son pic ensuite. « 2× % » = part des tokens ayant au moins doublé. Exploratoire — prudence sur les petits échantillons.</p>';
 
       document.getElementById('ff-body').innerHTML=html;
       var nn=new Date(); document.getElementById('ff-upd').textContent=('0'+nn.getHours()).slice(-2)+':'+('0'+nn.getMinutes()).slice(-2)+':'+('0'+nn.getSeconds()).slice(-2);
@@ -1724,12 +1728,17 @@ window.onload = function() {
   function applyRows(arr){ var tb=getTbody(); if(!tb) return; tb.querySelectorAll('tr').forEach(function(tr){
       if(tr.getAttribute('data-ff-exit')==='1') return;
       var p=match(arr,rowKey(tr)); if(!p) return;
-      if(!(p.status==='closed'&&p.partial_done)){ tr.setAttribute('data-ff-exit','1'); return; }
+      if(p.status!=='closed'){ tr.setAttribute('data-ff-exit','1'); return; }
       var e=num(p.entry_mcap),pm=num(p.partial_mcap),ex=num(p.exit_mcap),pk=num(p.peak_mcap);
+      var hasPart=(p.partial_done && pm!=null);
       var pPart=pct(e,pm),pRun=pct(e,ex),pPk=pct(e,pk);
+      var picTxt=(pPk!=null?(' · pic <span style="color:'+col(pPk)+'">'+fmt(pPk)+'</span>'):'');
       var tds=tr.querySelectorAll('td'); if(tds.length<9){ return; }
-      if(tds[5]&&!tds[5].querySelector('.ff-legs')){ var legs=document.createElement('div'); legs.className='ff-legs'; legs.style.cssText='font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3'; legs.innerHTML='½ <span style="color:'+col(pPart)+'">'+fmt(pPart)+'</span> · runner <span style="color:'+col(pRun)+'">'+fmt(pRun)+'</span>'+(pPk!=null?(' · pic <span style="color:'+col(pPk)+'">'+fmt(pPk)+'</span>'):''); tds[5].appendChild(legs); }
-      if(tds[8]&&!tds[8].querySelector('.ff-exitpct')){ tds[8].innerHTML=''; var s1=document.createElement('span'); s1.textContent=reasonLabel(p.exit_reason); var s2=document.createElement('span'); s2.className='ff-exitpct'; s2.style.cssText='color:'+col(pRun)+';margin-left:4px'; s2.textContent='· '+fmt(pRun); tds[8].appendChild(s1); tds[8].appendChild(s2); }
+      if(tds[5]&&!tds[5].querySelector('.ff-legs')){ var legs=document.createElement('div'); legs.className='ff-legs'; legs.style.cssText='font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3';
+        if(hasPart){ legs.innerHTML='½ <span style="color:'+col(pPart)+'">'+fmt(pPart)+'</span> · runner <span style="color:'+col(pRun)+'">'+fmt(pRun)+'</span>'+picTxt; }
+        else { legs.innerHTML='vente pleine'+picTxt; }
+        tds[5].appendChild(legs); }
+      if(tds[8]&&!tds[8].querySelector('.ff-reason')){ tds[8].innerHTML=''; var s1=document.createElement('span'); s1.className='ff-reason'; s1.textContent=reasonLabel(p.exit_reason); tds[8].appendChild(s1); if(hasPart){ var s2=document.createElement('span'); s2.className='ff-exitpct'; s2.style.cssText='color:'+col(pRun)+';margin-left:4px'; s2.textContent='· '+fmt(pRun); tds[8].appendChild(s2); } }
       tr.setAttribute('data-ff-exit','1');
     }); }
   function enhance(){ renameHeader(); var tb=getTbody(); if(!tb) return; var now=Date.now();
