@@ -1604,6 +1604,123 @@ window.onload = function() {
 </script>
 
 
+
+<!-- === SIGMA-S30-FOCUS (bloc additif autonome) ===
+     Mode discipline sur l'onglet Signaux, sans toucher au rendu existant :
+     (A) ouvre en "Eligibles seulement" par defaut + grise la couche note/etoiles/decision (non-predictive #167, gardee visible "pour info")
+     (B) pre-check rug-gate (RugCheck, logique identique au bot #186, DANGER_IGNORE 'Low Liquidity' #188, no-data=block) sur les lignes ELIGIBLES affichees -> grisees + tag (-) rug-gate + motifs au survol ; achat desactive.
+     Pas d'observer propre : piggyback sur le box-shadow vert pose par le bloc strategie (#154-safe) + un setInterval doux. Ecritures conditionnelles (data-rugkey). -->
+<script>
+(function(){
+  if(window.__sigmaFocus) return; window.__sigmaFocus = true;
+  var LIQ_FLOOR=10000, LP_MIN=90, DANGER_IGNORE={'Low Liquidity':1}, TIMEOUT=8000;
+  var GATE={};            // mint -> {state:'pending'|'ok'|'blocked', reasons:[]}
+  var flipped=false;
+
+  function injectCss(){
+    if(document.getElementById('sigma-focus-css')) return;
+    var t=document.getElementById('tbody'); var tbl=t&&t.closest('table'); if(tbl) tbl.classList.add('sig-focus');
+    var st=document.createElement('style'); st.id='sigma-focus-css';
+    st.textContent=
+      '.sig-focus tbody td .note-live{opacity:.4}'+
+      '.sig-focus tbody td .top-star{opacity:.35}'+
+      '.sig-focus tbody td .dec-buy,.sig-focus tbody td .dec-watch,.sig-focus tbody td .dec-pass{opacity:.42}'+
+      '.sig-focus thead th:nth-child(3),.sig-focus thead th:nth-child(11){opacity:.5}'+
+      '.rug-x{margin-left:6px;cursor:help}'+
+      '#focus-empty{margin:6px 0 10px;padding:10px 12px;border:1px dashed #2a3f5f;border-radius:8px;background:#0e1726;color:#7d8590;font-size:13px;display:none}';
+    document.head.appendChild(st);
+  }
+
+  // -- RugCheck client (miroir exact de src/rugcheck.js, fail-closed) --
+  function fetchGate(mint){
+    var opt={}; try{ opt.signal=AbortSignal.timeout(TIMEOUT); }catch(e){}
+    fetch('https://api.rugcheck.xyz/v1/tokens/'+mint+'/report',opt).then(function(r){
+      if(!r.ok){ GATE[mint]=(r.status===404)?{state:'blocked',reasons:['no-data (token trop frais)']}:{state:'blocked',reasons:['rugcheck HTTP '+r.status]}; pass(); return null; }
+      return r.json();
+    }).then(function(j){
+      if(j===null) return;
+      if(!j || (!j.mint && !j.markets)){ GATE[mint]={state:'blocked',reasons:['no-data (rapport vide)']}; pass(); return; }
+      var rs=[];
+      if(j.mintAuthority) rs.push('mint-authority active');
+      if(j.freezeAuthority) rs.push('freeze-authority active');
+      var lp=j.markets&&j.markets[0]&&j.markets[0].lp;
+      var lpPct=lp&&lp.lpLockedPct!=null?lp.lpLockedPct:null;
+      if(lpPct!=null && lpPct<LP_MIN) rs.push('LP lock '+Math.round(lpPct)+'%<'+LP_MIN);
+      if(j.totalMarketLiquidity!=null && j.totalMarketLiquidity<LIQ_FLOOR) rs.push('liq '+Math.round(j.totalMarketLiquidity)+'$<'+LIQ_FLOOR);
+      if(j.rugged===true) rs.push('rugged');
+      (j.risks||[]).forEach(function(rk){ if(rk&&rk.level==='danger'&&!DANGER_IGNORE[rk.name]) rs.push('danger: '+rk.name); });
+      GATE[mint]={state:rs.length?'blocked':'ok', reasons:rs}; pass();
+    }).catch(function(){ GATE[mint]={state:'blocked',reasons:['rugcheck injoignable (fail-closed)']}; pass(); });
+  }
+
+  function mintOf(tr){
+    var a=tr.querySelector('a.dex-link'); if(!a) return null;
+    var m=(a.getAttribute('href')||'').match(/solana\/([1-9A-HJ-NP-Za-km-z]{32,44})/);
+    return m?m[1]:null;
+  }
+  function clearRug(tr){
+    if(!tr.getAttribute('data-rugkey')) return;
+    tr.removeAttribute('data-rugkey'); tr.style.opacity='';
+    var x=tr.querySelector('.rug-x'); if(x) x.remove();
+    var b=tr.querySelector('.buy-btn'); if(b){ b.disabled=false; b.style.background=''; b.style.cursor=''; b.title=''; }
+  }
+  function applyRug(tr,g){
+    var key=g.state+'|'+g.reasons.join('|');
+    if(tr.getAttribute('data-rugkey')===key) return;     // ecriture conditionnelle (#152)
+    tr.setAttribute('data-rugkey',key);
+    var x=tr.querySelector('.rug-x'); if(x) x.remove();
+    var b=tr.querySelector('.buy-btn');
+    if(g.state==='blocked'){
+      tr.style.opacity='0.55';
+      var dec=tr.children[10];
+      if(dec){ var s=document.createElement('span'); s.className='rug-x'; s.textContent='\u26D4'; s.title='Refuse par le rug-gate :\n- '+g.reasons.join('\n- '); dec.appendChild(s); }
+      if(b){ b.disabled=true; b.style.background='#3a3f4a'; b.style.cursor='not-allowed'; b.title='\u26D4 Non achetable (rug-gate) : '+g.reasons.join(' \u00B7 '); }
+    } else { // ok
+      tr.style.opacity='';
+      if(b){ b.disabled=false; b.style.background=''; b.style.cursor=''; b.title=''; }
+    }
+  }
+
+  function pass(){
+    var tb=document.getElementById('tbody'); if(!tb) return;
+    var rows=tb.querySelectorAll('tr'), shown=0;
+    rows.forEach(function(tr){
+      if(!tr.children||tr.children.length<11) return;
+      var hidden=(tr.style.display==='none');
+      var elig=!!tr.style.boxShadow;            // pose UNIQUEMENT sur les eligibles par le bloc strategie
+      if(!elig || hidden){ clearRug(tr); return; }
+      shown++;
+      var mint=mintOf(tr); if(!mint) return;
+      var g=GATE[mint];
+      if(!g){ GATE[mint]={state:'pending',reasons:[]}; fetchGate(mint); return; }
+      if(g.state==='pending') return;
+      applyRug(tr,g);
+    });
+    var emp=document.getElementById('focus-empty');
+    var hideOn=document.getElementById('strat-hide'); hideOn=hideOn&&hideOn.checked;
+    if(emp) emp.style.display=(hideOn&&shown===0)?'block':'none';
+  }
+
+  function boot(){
+    injectCss();
+    var bar=document.getElementById('strat-bar');
+    if(!bar){ return setTimeout(boot,400); }     // attendre le bloc strategie
+    if(!document.getElementById('focus-empty')){
+      var e=document.createElement('div'); e.id='focus-empty';
+      e.innerHTML='Aucun token \u00e9ligible pour l\u2019instant \u2014 c\u2019est normal. Le filtre attend un D1/M1 early, liquide et hors bande molle \u0394\u200924h 0\u2013100\u202f%. D\u00e9coche \u00ab\u202fEligibles seulement\u202f\u00bb pour revoir toute la liste.';
+      bar.parentNode.insertBefore(e,bar.nextSibling);
+    }
+    if(!flipped){                                 // (A) ouvre en discipline une seule fois par chargement
+      var cb=document.getElementById('strat-hide');
+      if(cb && !cb.checked){ cb.checked=true; cb.dispatchEvent(new Event('change')); }
+      flipped=true;
+    }
+    setInterval(pass, 3000); pass();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
 <!-- === Sigma Signals — Onglet "🎲 Fun facts" (bloc additif autonome, v2 s27 — 100% marché) ===
      Générateur d'hypothèses, PAS un livre de règles : petits échantillons → bruit probable, n affiché partout (⚠ = n<8).
      Lecture seule, 100% MARCHÉ : g1-data (MFE/outcome de TOUS les tokens détectés & suivis) + signals-data (liq/change au scan).
