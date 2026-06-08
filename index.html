@@ -1531,14 +1531,14 @@ window.onload = function() {
 })();
 </script>
 
-<!-- === Sigma Signals — Filtre stratégie d'achat (bloc additif autonome, v1) === -->
-<!-- D1/M1 · age <= 45min · liq >= 12k. Entree-side de la strategie (source+age+liq), tunable. -->
+<!-- === Sigma Signals — Filtre stratégie d'achat (bloc additif autonome, v2) === -->
+<!-- source + age <= 45min + liq >= 12k + Δ24h hors 0-100% (live DexScreener, tunable). Entree-side. s28. -->
 <script>
 (function(){
   try{
     if(window.__sigmaStrat) return;
     var SRC={D1:true,M1:true,C1:true,'02':false};
-    var MAX_AGE=45, MIN_LIQ=12000, hideOnly=false;
+    var MAX_AGE=45, MIN_LIQ=12000, hideOnly=false, useCh=true;
     function parseAge(t){ t=(t||'').toLowerCase().replace('il y a','').trim();
       var m=t.match(/(\d+(?:[.,]\d+)?)\s*(min|m|h|j|d)/); if(!m) return NaN;
       var n=parseFloat(m[1].replace(',','.')),u=m[2];
@@ -1546,11 +1546,13 @@ window.onload = function() {
     function parseLiq(t){ t=(t||'').replace(/[$\s,]/g,'').toLowerCase();
       var m=t.match(/(\d+(?:\.\d+)?)\s*([km]?)/); if(!m) return NaN;
       var n=parseFloat(m[1]); if(m[2]==='k')n*=1e3; if(m[2]==='m')n*=1e6; return n; }
+    function parseCh(t){ t=(''+(t||'')).replace(/[+%\s,]/g,''); if(t===''||t.indexOf('\u2014')>=0) return null; var n=parseFloat(t); return isFinite(n)?n:null; }
     function eligible(tr){ var c=tr.children; if(!c||c.length<11) return null;
       var src=(c[1].textContent||'').trim();
       var age=parseAge(c[4].textContent), liq=parseLiq(c[7].textContent);
       if(isNaN(liq)) return null;
-      return !!SRC[src] && !isNaN(age) && age<=MAX_AGE && liq>=MIN_LIQ; }
+      var ch=parseCh(c[6].textContent); var chOK = !useCh || (ch==null) || (ch<0) || (ch>=100);
+      return !!SRC[src] && !isNaN(age) && age<=MAX_AGE && liq>=MIN_LIQ && chOK; }
     function boot(){
       var tb=document.getElementById('tbody'); var table=tb&&tb.closest('table');
       if(!table){ return setTimeout(boot,800); }
@@ -1565,7 +1567,7 @@ window.onload = function() {
             var e=eligible(tr), dec=tr.children[10], pill=dec.querySelector('.strat-pill');
             if(e===true){ ok++; tr.style.boxShadow='inset 4px 0 0 0 #16c784';
               if(!pill){ pill=document.createElement('span'); pill.className='strat-pill';
-                pill.textContent='\uD83C\uDFAF '; pill.title='Eligible: '+(tr.children[1].textContent||'').trim()+' / age OK / liq OK';
+                pill.textContent='\uD83C\uDFAF '; pill.title='Eligible: '+(tr.children[1].textContent||'').trim()+' / age OK / liq OK / \u039424h '+((tr.children[6].textContent||'').trim());
                 dec.insertBefore(pill,dec.firstChild); }
               tr.style.display=''; }
             else { tr.style.boxShadow=''; if(pill) pill.remove();
@@ -1585,12 +1587,14 @@ window.onload = function() {
         +'<label><input type="checkbox" data-src="02"> 02</label>'
         +'<label>Age &le; <input type="number" id="strat-age" value="45" style="width:48px"> min</label>'
         +'<label>Liq &ge; <input type="number" id="strat-liq" value="12" style="width:54px"> k</label>'
+        +'<label title="Eligible si \u039424h \u2265100% ou <0% ou inconnu ; exclut la bande 0\u2013100%" style="cursor:pointer"><input type="checkbox" id="strat-ch24" checked> \u039424h hors 0\u2013100%</label>'
         +'<span id="strat-count" style="margin-left:auto;color:#16c784;font-weight:600"></span>';
       table.parentNode.insertBefore(bar,table);
       bar.querySelector('#strat-hide').addEventListener('change',function(e){hideOnly=e.target.checked;apply();});
       bar.querySelectorAll('input[data-src]').forEach(function(cb){cb.addEventListener('change',function(){SRC[cb.getAttribute('data-src')]=cb.checked;apply();});});
       bar.querySelector('#strat-age').addEventListener('input',function(e){MAX_AGE=parseFloat(e.target.value)||45;apply();});
       bar.querySelector('#strat-liq').addEventListener('input',function(e){MIN_LIQ=(parseFloat(e.target.value)||12)*1000;apply();});
+      bar.querySelector('#strat-ch24').addEventListener('change',function(e){useCh=e.target.checked;apply();});
       obs=new MutationObserver(function(){ if(window.__stratPending) return; window.__stratPending=true; setTimeout(function(){window.__stratPending=false;apply();},120); });
       window.__sigmaStrat={apply:apply}; apply();
     }
