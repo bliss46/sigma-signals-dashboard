@@ -1882,5 +1882,62 @@ window.onload = function() {
   setTimeout(install, 600);
 })();
 </script>
+
+<script>
+/* SIGMA-S30B-COUNTER session 30 - compteur eligibilite permanent + escape hatch */
+(function(){
+  if (window.__sigmaCounter) return;
+  window.__sigmaCounter = true;
+  var GREEN='#16c784', AMBER='#e0a23b', MUT='#8a93a6', SEP='#3a4150', LINK='#6ea8fe';
+  function findTable(){ var tb=document.querySelector('#tbody'); return tb?tb.closest('table'):null; }
+  function ensureEl(){
+    var t=findTable(); if(!t||!t.parentElement) return null;
+    var c=document.getElementById('elig-counter');
+    if(!c){
+      c=document.createElement('div'); c.id='elig-counter';
+      c.style.cssText='margin:8px 0 6px;padding:8px 12px;border:1px solid #2a2f3a;border-radius:8px;background:#161a22;font:13px/1.5 ui-monospace,Menlo,monospace;color:#c9d1d9;display:flex;align-items:center;gap:12px;flex-wrap:wrap';
+      t.parentElement.insertBefore(c, t);
+    }
+    return c;
+  }
+  function rows(){ return [].slice.call(document.querySelectorAll('#tbody tr')); }
+  function isElig(r){ try{ return r.hasAttribute('data-rugkey') || getComputedStyle(r).boxShadow!=='none'; }catch(e){ return false; } }
+  function isBlocked(r){ return r.textContent.indexOf('⛔')>=0; }
+  function btnOff(r){ var b=r.querySelector('button'); return b?!!b.disabled:false; }
+  function hideOn(){ var h=document.querySelector('#strat-hide'); return h?!!h.checked:false; }
+  function add(c,txt,col,extra){ var s=document.createElement('span'); s.textContent=txt; s.style.color=col; if(extra) s.style.cssText+=';'+extra; c.appendChild(s); return s; }
+  function recount(){
+    var c=ensureEl(); if(!c) return;
+    var rs=rows(), total=rs.length;
+    var elig=rs.filter(isElig);
+    var blocked=elig.filter(isBlocked).length;
+    var buyable=elig.filter(function(r){ return !isBlocked(r) && !btnOff(r); }).length;
+    var pending=elig.length-blocked-buyable; if(pending<0) pending=0;
+    var exDelta=total-elig.length;
+    var col=buyable>0?GREEN:AMBER;
+    c.innerHTML='';
+    add(c,buyable+' achetable'+(buyable===1?'':'s'),col,'font-weight:700');
+    add(c,'/ '+total+' signaux',MUT);
+    add(c,'·',SEP);
+    add(c,exDelta+' écartés (filtre)',MUT);
+    add(c,'·',SEP);
+    add(c,blocked+' bloqués rug-gate',MUT);
+    if(pending>0){ add(c,'·',SEP); add(c,pending+' en vérif',MUT); }
+    if(buyable===0){ add(c,'— rien à acheter pour l’instant, c’est un signal d’attendre',MUT,'font-style:italic'); }
+    var esc=document.createElement('a'); esc.href='#'; esc.style.cssText='margin-left:auto;color:'+LINK+';text-decoration:none;font-weight:600;white-space:nowrap';
+    esc.textContent=hideOn()?'→ voir tout ('+total+')':'← éligibles seulement';
+    esc.onclick=function(ev){ ev.preventDefault(); var h=document.querySelector('#strat-hide'); if(h){ h.click(); setTimeout(recount,60); } };
+    c.appendChild(esc);
+  }
+  window.__sigmaRecount=recount;
+  if(typeof window.renderTable==='function' && !window.__counterWrapped){
+    var _o=window.renderTable;
+    window.renderTable=function(){ var r=_o.apply(this,arguments); try{ requestAnimationFrame(recount); }catch(e){ recount(); } return r; };
+    window.__counterWrapped=true;
+  }
+  setInterval(recount, 3000);
+  recount();
+})();
+</script>
 </body>
 </html>
