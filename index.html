@@ -1939,5 +1939,159 @@ window.onload = function() {
   recount();
 })();
 </script>
+<script>
+(function () {
+  if (window.__autobuyInjected) return;
+  window.__autobuyInjected = true;
+
+  function inject() {
+    if (document.getElementById('tab-autobuy-btn')) return true;
+    var anyBtn = document.querySelector('.tab-btn');
+    var anyPane = document.querySelector('.tab-content');
+    if (!anyBtn || !anyPane) return false;
+    var bar = anyBtn.parentElement;
+    var paneWrap = anyPane.parentElement;
+    var btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.id = 'tab-autobuy-btn';
+    btn.textContent = '\uD83E\uDD16 Auto-achat';
+    btn.setAttribute('onclick', "switchTab('autobuy', this); loadAutobuy();");
+    bar.appendChild(btn);
+    var pane = document.createElement('div');
+    pane.className = 'tab-content';
+    pane.id = 'tab-autobuy';
+    pane.innerHTML = '<div style="padding:16px;color:var(--muted,#888)">Onglet Auto-achat \u2014 clique pour charger\u2026</div>';
+    paneWrap.appendChild(pane);
+    return true;
+  }
+  if (!inject()) {
+    document.addEventListener('DOMContentLoaded', inject);
+    setTimeout(inject, 1500);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function fmtUsd(n) {
+    if (n == null || isNaN(n)) return '\u2013';
+    n = Number(n);
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'k';
+    return '$' + n.toFixed(0);
+  }
+  function fmtPct(n) {
+    if (n == null || isNaN(n)) return '\u2013';
+    n = Number(n);
+    return (n >= 0 ? '+' : '') + n.toFixed(0) + '%';
+  }
+  function ago(ts) {
+    if (!ts) return '\u2013';
+    var s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+    if (s < 60) return s + 's';
+    if (s < 3600) return Math.floor(s / 60) + 'min';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    return Math.floor(s / 86400) + 'j';
+  }
+  function decBadge(d) {
+    var map = {
+      bought: ['#16a34a', 'achete'],
+      would_buy: ['#0ea5e9', 'simule'],
+      rug_blocked: ['#dc2626', 'rug bloque'],
+      error: ['#f59e0b', 'erreur']
+    };
+    var m = map[d] || ['#64748b', d || '?'];
+    return '<span style="background:' + m[0] + ';color:#fff;padding:1px 7px;border-radius:6px;font-size:11px">' + esc(m[1]) + '</span>';
+  }
+
+  window.loadAutobuy = async function () {
+    var pane = document.getElementById('tab-autobuy');
+    if (!pane) { if (inject()) pane = document.getElementById('tab-autobuy'); if (!pane) return; }
+    pane.innerHTML = '<div style="padding:16px;color:var(--muted,#888)">Chargement\u2026</div>';
+    var data;
+    try {
+      var r = await fetch('/api/autobuy-data', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      data = await r.json();
+      if (!r.ok) throw new Error(data && data.error ? data.error : 'HTTP ' + r.status);
+    } catch (e) {
+      pane.innerHTML = '<div style="padding:16px;color:#dc2626">Erreur de chargement : ' + esc(e.message) + '</div>';
+      return;
+    }
+    var log = Array.isArray(data.log) ? data.log : [];
+    var positions = Array.isArray(data.positions) ? data.positions : [];
+    var settings = data.settings || null;
+
+    var botPosIds = new Set(log.filter(function (d) { return d.decision === 'bought' && d.position_id != null; }).map(function (d) { return d.position_id; }));
+    function isBot(p) { return botPosIds.has(p.id); }
+
+    var c = { bought: 0, would_buy: 0, rug_blocked: 0, error: 0 };
+    log.forEach(function (d) { if (c[d.decision] != null) c[d.decision]++; });
+
+    function tpRate(fn) {
+      var closed = positions.filter(function (p) { return p.status && p.status !== 'open' && fn(p); });
+      if (!closed.length) return null;
+      var tp = closed.filter(function (p) { return (p.exit_reason || '').indexOf('take_profit') >= 0; }).length;
+      return { n: closed.length, tp: tp, rate: Math.round(tp / closed.length * 100) };
+    }
+    var tpBot = tpRate(isBot), tpMoi = tpRate(function (p) { return !isBot(p); });
+
+    var mode, modeColor;
+    if (settings && settings.autobuy_enabled != null) {
+      var en = String(settings.autobuy_enabled) === 'true';
+      var dry = String(settings.autobuy_dry_run) !== 'false';
+      if (!en) { mode = 'OFF'; modeColor = '#64748b'; }
+      else if (dry) { mode = 'DRY-RUN (observe)'; modeColor = '#0ea5e9'; }
+      else { mode = 'ARME (reel)'; modeColor = '#16a34a'; }
+    } else { mode = '\u2014 (defaut env bot ; flag dashboard non pose)'; modeColor = '#64748b'; }
+    var lastCycle = log.length ? ago(log[0].created_at) : '\u2013';
+    var botCount = positions.filter(isBot).length;
+    var moiCount = positions.length - botCount;
+
+    var H = [];
+    H.push('<div style="padding:14px 16px">');
+    H.push('<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px">');
+    H.push('<div style="font-size:15px;font-weight:600">\uD83E\uDD16 Auto-achat</div>');
+    H.push('<div>Etat : <span style="background:' + modeColor + ';color:#fff;padding:2px 9px;border-radius:7px;font-weight:600">' + esc(mode) + '</span></div>');
+    H.push('<div style="color:var(--muted,#888)">Derniere decision : ' + esc(lastCycle) + '</div>');
+    H.push('</div>');
+
+    H.push('<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">');
+    H.push('<button disabled title="Phase 2 \u2014 necessite AUTOBUY_PIN" style="background:#16a34a;opacity:.45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:not-allowed">\u25B6 Enclencher (PIN)</button>');
+    H.push('<button disabled title="Phase 2 \u2014 necessite AUTOBUY_PIN" style="background:#dc2626;opacity:.45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:not-allowed">\u25A0 OFF (PIN)</button>');
+    H.push('<span style="color:var(--muted,#888);font-size:12px;align-self:center">Boutons actifs en phase 2 (apres pose du PIN serveur)</span>');
+    H.push('</div>');
+
+    H.push('<div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:18px;padding:12px;border:1px solid var(--border,#333);border-radius:10px">');
+    function stat(label, val, color) { return '<div><div style="color:var(--muted,#888);font-size:12px">' + label + '</div><div style="font-size:20px;font-weight:600' + (color ? ';color:' + color : '') + '">' + val + '</div></div>'; }
+    H.push(stat('Decisions', log.length));
+    H.push(stat('Achetes', c.bought, '#16a34a'));
+    H.push(stat('Simules', c.would_buy, '#0ea5e9'));
+    H.push(stat('Rug bloques', c.rug_blocked, '#dc2626'));
+    H.push(stat('TP auto \uD83E\uDD16', tpBot ? tpBot.rate + '% (' + tpBot.tp + '/' + tpBot.n + ')' : '\u2013'));
+    H.push(stat('TP manuel \uD83D\uDC64', tpMoi ? tpMoi.rate + '% (' + tpMoi.tp + '/' + tpMoi.n + ')' : '\u2013'));
+    H.push('</div>');
+
+    H.push('<div style="font-weight:600;margin:6px 0">Decisions du bot (' + log.length + ')</div>');
+    if (!log.length) {
+      H.push('<div style="color:var(--muted,#888);padding:8px 0 16px">Aucune decision encore. Des que tu activeras le DRY-RUN, les lignes apparaitront ici (simule / rug bloque / achete).</div>');
+    } else {
+      H.push('<div style="overflow-x:auto;margin-bottom:18px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted,#888);border-bottom:1px solid var(--border,#333)"><th style="padding:6px">Quand</th><th style="padding:6px">Token</th><th style="padding:6px">Source</th><th style="padding:6px">Decision</th><th style="padding:6px">Motif</th><th style="padding:6px">D24h</th><th style="padding:6px">Liq</th><th style="padding:6px">Age</th><th style="padding:6px">SOL</th></tr></thead><tbody>');
+      log.forEach(function (d) {
+        H.push('<tr style="border-bottom:1px solid var(--border,#262626)"><td style="padding:6px;white-space:nowrap">' + esc(ago(d.created_at)) + '</td><td style="padding:6px">' + esc(d.symbol || (d.mint ? d.mint.slice(0, 6) : '?')) + '</td><td style="padding:6px">' + esc(d.source || '\u2013') + '</td><td style="padding:6px">' + decBadge(d.decision) + '</td><td style="padding:6px;color:var(--muted,#888)">' + esc(d.reason || '\u2013') + '</td><td style="padding:6px">' + fmtPct(d.h24) + '</td><td style="padding:6px">' + fmtUsd(d.liq_usd) + '</td><td style="padding:6px">' + (d.age_min != null ? Math.round(d.age_min) + 'min' : '\u2013') + '</td><td style="padding:6px">' + (d.sol_in != null ? Number(d.sol_in).toFixed(3) : '\u2013') + '</td></tr>');
+      });
+      H.push('</tbody></table></div>');
+    }
+
+    H.push('<div style="font-weight:600;margin:6px 0">Positions / trades \u2014 \uD83E\uDD16 bot (' + botCount + ') vs \uD83D\uDC64 toi (' + moiCount + ')</div>');
+    H.push('<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted,#888);border-bottom:1px solid var(--border,#333)"><th style="padding:6px">Par</th><th style="padding:6px">Token</th><th style="padding:6px">Statut</th><th style="padding:6px">SOL</th><th style="padding:6px">Entree</th><th style="padding:6px">Pic</th><th style="padding:6px">Sortie</th><th style="padding:6px">Raison</th></tr></thead><tbody>');
+    positions.forEach(function (p) {
+      H.push('<tr style="border-bottom:1px solid var(--border,#262626)"><td style="padding:6px">' + (isBot(p) ? '\uD83E\uDD16' : '\uD83D\uDC64') + '</td><td style="padding:6px">' + esc(p.symbol || (p.mint ? p.mint.slice(0, 6) : '?')) + '</td><td style="padding:6px">' + esc(p.status || '\u2013') + '</td><td style="padding:6px">' + (p.sol_in != null ? Number(p.sol_in).toFixed(3) : '\u2013') + '</td><td style="padding:6px">' + fmtUsd(p.entry_mcap) + '</td><td style="padding:6px">' + fmtUsd(p.peak_mcap) + '</td><td style="padding:6px">' + fmtUsd(p.exit_mcap) + '</td><td style="padding:6px;color:var(--muted,#888)">' + esc(p.exit_reason || '\u2013') + '</td></tr>');
+    });
+    H.push('</tbody></table></div></div>');
+    pane.innerHTML = H.join('');
+  };
+})();
+</script>
 </body>
 </html>
