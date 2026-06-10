@@ -2093,5 +2093,121 @@ window.onload = function() {
   };
 })();
 </script>
+<script>
+/* === SIGMA-S32-PEAK (bloc additif autonome) =========================
+   Onglet "Pics" : metrique vivante du taux d'atteinte de pic par source
+   et par bande Δ24h, lue depuis /api/peak-data (pending_checks.peak_pct,
+   shadow-tracker sans biais de survie #217). Remplace conceptuellement
+   l'objectif 1 (mort en DRY-RUN). Lecture seule, additif, 1 ancre.
+   ==================================================================== */
+(function () {
+  if (window.__peakInjected) return;
+  window.__peakInjected = true;
+
+  function inject() {
+    if (document.getElementById('tab-peak-btn')) return true;
+    var anyBtn = document.querySelector('.tab-btn');
+    var anyPane = document.querySelector('.tab-content');
+    if (!anyBtn || !anyPane) return false;
+    var btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.id = 'tab-peak-btn';
+    btn.textContent = '\uD83D\uDCC8 Pics';
+    btn.setAttribute('onclick', "switchTab('peak', this); loadPeak();");
+    anyBtn.parentElement.appendChild(btn);
+    var pane = document.createElement('div');
+    pane.className = 'tab-content';
+    pane.id = 'tab-peak';
+    pane.innerHTML = '<div style="padding:16px;color:var(--muted,#888)">Onglet Pics \u2014 clique pour charger\u2026</div>';
+    anyPane.parentElement.appendChild(pane);
+    return true;
+  }
+  if (!inject()) { document.addEventListener('DOMContentLoaded', inject); setTimeout(inject, 1500); }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  var SRC_LABEL = { D1: 'D1', C1: 'C1', '02': '02', M1: 'M1', '?': 'source inconnue' };
+  var BAND_ORDER = ['<0', '0-100', '100-300', '300-1000', '>1000', '?'];
+  var BAND_LABEL = { '<0': 'Δ24h < 0 %', '0-100': '0\u2013100 %', '100-300': '100\u2013300 %', '300-1000': '300\u20131000 %', '>1000': '> 1000 %', '?': 'Δ24h inconnu' };
+
+  // teinte verte proportionnelle au taux >=+20 % (0->gris, 100->vert vif)
+  function rateCell(p) {
+    if (p == null) return '<td style="padding:6px">\u2013</td>';
+    var g = Math.max(0, Math.min(100, p));
+    var col = g >= 55 ? '#16a34a' : g >= 40 ? '#65a30d' : g >= 25 ? '#a16207' : '#64748b';
+    return '<td style="padding:6px;font-weight:600;color:' + col + '">' + p + ' %</td>';
+  }
+  function cell(v, suf) { return '<td style="padding:6px">' + (v == null ? '\u2013' : v + (suf || '')) + '</td>'; }
+
+  function table(title, rows) {
+    var H = ['<div style="font-weight:600;margin:14px 0 6px">' + esc(title) + '</div>'];
+    H.push('<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">');
+    H.push('<thead><tr style="text-align:left;color:var(--muted,#888);border-bottom:1px solid var(--border,#333)">' +
+      '<th style="padding:6px">Catégorie</th><th style="padding:6px">n</th>' +
+      '<th style="padding:6px">\u2265 +20 %</th><th style="padding:6px">\u2265 +50 %</th>' +
+      '<th style="padding:6px">\u2265 +100 %</th><th style="padding:6px">pic médian</th></tr></thead><tbody>');
+    rows.forEach(function (r) {
+      H.push('<tr style="border-bottom:1px solid var(--border,#262626)">' +
+        '<td style="padding:6px;font-weight:600">' + esc(r.label) + '</td>' +
+        cell(r.c && r.c.n) + rateCell(r.c && r.c.ge20) + rateCell(r.c && r.c.ge50) +
+        rateCell(r.c && r.c.ge100) + cell(r.c && r.c.med, ' %') + '</tr>');
+    });
+    H.push('</tbody></table></div>');
+    return H.join('');
+  }
+
+  var curDays = null; // null = tout l'historique
+  window.loadPeak = async function (days) {
+    if (days !== undefined) curDays = days;
+    var pane = document.getElementById('tab-peak');
+    if (!pane) { if (inject()) pane = document.getElementById('tab-peak'); if (!pane) return; }
+    pane.innerHTML = '<div style="padding:16px;color:var(--muted,#888)">Chargement\u2026</div>';
+    var data;
+    try {
+      var q = curDays ? ('?days=' + curDays) : '';
+      var r = await fetch('/api/peak-data' + q, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      data = await r.json();
+      if (!r.ok) throw new Error(data && data.error ? data.error : 'HTTP ' + r.status);
+    } catch (e) {
+      pane.innerHTML = '<div style="padding:16px;color:#dc2626">Erreur de chargement : ' + esc(e.message) + '</div>';
+      return;
+    }
+    var bySource = data.bySource || {}, byBand = data.byBand || {};
+
+    var srcRows = Object.keys(bySource)
+      .sort(function (a, b) { return (bySource[b].n || 0) - (bySource[a].n || 0); })
+      .map(function (k) { return { label: SRC_LABEL[k] || k, c: bySource[k] }; });
+    var bandRows = BAND_ORDER.filter(function (k) { return byBand[k]; })
+      .map(function (k) { return { label: BAND_LABEL[k] || k, c: byBand[k] }; });
+
+    function winBtn(lbl, val) {
+      var on = (curDays === val) || (val == null && curDays == null);
+      return '<button onclick="loadPeak(' + (val == null ? 'null' : val) + ')" style="background:' +
+        (on ? 'var(--accent,#7c3aed)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--muted,#888)') +
+        ';border:1px solid var(--border,#333);padding:4px 12px;border-radius:7px;font-size:12px;cursor:pointer">' + lbl + '</button>';
+    }
+
+    var H = ['<div style="padding:14px 16px">'];
+    H.push('<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:6px">');
+    H.push('<div style="font-size:15px;font-weight:600">\uD83D\uDCC8 Taux d\'atteinte de pic</div>');
+    H.push('<div style="display:flex;gap:6px">' + winBtn('Tout', null) + winBtn('30 j', 30) + winBtn('7 j', 7) + '</div>');
+    H.push('<div style="color:var(--muted,#888);font-size:12px">' + (data.total || 0) + ' tokens suivis' +
+      (curDays ? (' \u00b7 ' + curDays + ' derniers jours') : ' \u00b7 tout l\'historique') + '</div>');
+    H.push('</div>');
+    H.push('<div style="color:var(--muted,#888);font-size:12px;margin-bottom:8px">' +
+      'Part des tokens détectés dont le prix a touché +20 / +50 / +100 % après le signal ' +
+      '(source : suivi continu <code>pending_checks</code>, rugs inclus \u2192 sans biais de survie).</div>');
+
+    H.push(table('Par source', srcRows));
+    H.push(table('Par bande Δ24h (à la détection)', bandRows));
+    H.push('</div>');
+    pane.innerHTML = H.join('');
+  };
+})();
+</script>
+
 </body>
 </html>
