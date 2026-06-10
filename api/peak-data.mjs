@@ -20,7 +20,7 @@ WITH sig AS (
 ),
 base AS (
   SELECT pc.peak_pct::numeric                         AS pk,
-         COALESCE(NULLIF(pc.source, ''), '?')          AS src,
+         COALESCE(NULLIF(CASE WHEN pc.source = '2' THEN '02' ELSE pc.source END, ''), '?') AS src,
          s.change_24h::numeric                         AS c24
   FROM   pending_checks pc
   LEFT   JOIN sig s ON s.addr = lower(pc.address)
