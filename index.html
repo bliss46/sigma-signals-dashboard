@@ -2005,6 +2005,27 @@ window.onload = function() {
     return '<span style="background:' + m[0] + ';color:#fff;padding:1px 7px;border-radius:6px;font-size:11px">' + esc(m[1]) + '</span>';
   }
 
+  // PHASE 2 (s32) : armement/stop reel via /api/autobuy-arm (PIN verifie cote serveur, jamais ici).
+  window.armAutobuy = async function (action) {
+    try {
+      var body = { action: action };
+      if (action === 'arm') {
+        var pin = window.prompt('PIN d’armement — achats RÉELS au prochain cycle :');
+        if (pin == null || pin === '') return;
+        body.pin = pin;
+      } else if (!window.confirm('Stopper les achats réels (retour observe / DRY) ?')) { return; }
+      var r = await fetch('/api/autobuy-arm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { alert('Échec : ' + (d.error || ('HTTP ' + r.status))); return; }
+      alert(action === 'arm'
+        ? (d.armed ? '✅ Armé — achats réels au prochain cycle du bot (≤ 60 s).' : 'État : enabled=' + d.enabled + ' dry_run=' + d.dry_run)
+        : '■ Stoppé — retour en observe (DRY), aucun achat réel.');
+      loadAutobuy();
+    } catch (e) { alert('Erreur : ' + e.message); }
+  };
+  window.armAutobuyArm = function () { return window.armAutobuy('arm'); };
+  window.armAutobuyStop = function () { return window.armAutobuy('stop'); };
+
   window.loadAutobuy = async function () {
     var pane = document.getElementById('tab-autobuy');
     if (!pane) { if (inject()) pane = document.getElementById('tab-autobuy'); if (!pane) return; }
@@ -2057,9 +2078,9 @@ window.onload = function() {
     H.push('</div>');
 
     H.push('<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">');
-    H.push('<button disabled title="Phase 2 \u2014 necessite AUTOBUY_PIN" style="background:#16a34a;opacity:.45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:not-allowed">\u25B6 Enclencher (PIN)</button>');
-    H.push('<button disabled title="Phase 2 \u2014 necessite AUTOBUY_PIN" style="background:#dc2626;opacity:.45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:not-allowed">\u25A0 OFF (PIN)</button>');
-    H.push('<span style="color:var(--muted,#888);font-size:12px;align-self:center">Boutons actifs en phase 2 (apres pose du PIN serveur)</span>');
+    H.push('<button onclick="armAutobuyArm()" title="Armer les achats RÉELS (PIN requis)" style="background:#16a34a;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">▶ Armer (réel)</button>');
+    H.push('<button onclick="armAutobuyStop()" title="Stop : retour observe (DRY), 1 clic" style="background:#dc2626;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">■ Stop</button>');
+    H.push('<span style="color:var(--muted,#888);font-size:12px;align-self:center">Armer = PIN (achats réels) · Stop = 1 clic (retour DRY)</span>');
     H.push('</div>');
 
     H.push('<div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:18px;padding:12px;border:1px solid var(--border,#333);border-radius:10px">');
