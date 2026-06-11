@@ -2230,5 +2230,42 @@ window.onload = function() {
 })();
 </script>
 
+<script>
+/* SIGMA-S34-HAIKU-HEALTH : bandeau alerte scoring Haiku (credits Anthropic) #213.
+   RED = signaux D1/C1/M1 recents tous note_claude null (credits KO) ;
+   ORANGE = aucun signal D1/C1/M1 depuis >30 min (feed silencieux). Sinon masque. */
+(function () {
+  if (window.__sigmaHaikuHealth) return; window.__sigmaHaikuHealth = true;
+  var bar = document.createElement('div');
+  bar.id = 'haiku-health-bar';
+  bar.style.cssText = 'display:none;position:sticky;top:0;z-index:9999;width:100%;box-sizing:border-box;padding:8px 14px;font:600 13px/1.4 system-ui,sans-serif;text-align:center;';
+  document.body.insertBefore(bar, document.body.firstChild);
+  function render(state, msg) {
+    if (state === 'ok') { bar.style.display = 'none'; return; }
+    bar.style.display = 'block';
+    if (state === 'red') { bar.style.background = '#7f1d1d'; bar.style.color = '#fee2e2'; }
+    else { bar.style.background = '#78350f'; bar.style.color = '#fef3c7'; }
+    bar.textContent = msg;
+  }
+  async function check() {
+    try {
+      var r = await fetch('/api/haiku-health', { cache: 'no-store' });
+      if (!r.ok) { render('ok'); return; }
+      var d = await r.json();
+      var recent = d.recent || 0, scored = d.scored || 0, lastMin = d.last_min;
+      if (recent > 0 && scored === 0) {
+        render('red', '\u26A0\uFE0F Scoring Haiku KO \u2014 recharge les credits Anthropic (console.anthropic.com). Les ' + recent + ' derniers signaux D1/C1/M1 sont non scores (note=null).');
+      } else if (recent === 0 && lastMin != null && lastMin > 30) {
+        render('orange', '\u26A0\uFE0F Feed silencieux : aucun signal D1/C1/M1 depuis ~' + lastMin + ' min (credits Anthropic ? n8n ?).');
+      } else {
+        render('ok');
+      }
+    } catch (e) { render('ok'); }
+  }
+  check();
+  setInterval(check, 60000);
+})();
+</script>
+  
 </body>
 </html>
