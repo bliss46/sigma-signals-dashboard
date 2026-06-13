@@ -2348,5 +2348,99 @@ window.onload = function() {
 })();
 </script>
 
+<!-- ══════════════════════════════════════════════
+     MOBILE RESPONSIVE (≤600px) — additif, n'altère pas le rendu desktop
+     Transforme chaque <table> en cartes empilées (label ⇠ thead, valeur ⇢ td)
+══════════════════════════════════════════════ -->
+<style id="m-mobile-css">
+@media (max-width:600px){
+  body{ font-size:13px; }
+
+  /* HEADER */
+  .header{ padding:8px 12px; }
+  .header-left{ gap:8px; }
+  .logo{ width:24px; height:24px; }
+  .title-block h1{ font-size:13px; }
+  .title-block p{ display:none; }
+  .header-right{ gap:8px; }
+  .header-right .source-badge{ display:none; }
+  .clock{ display:none; }
+  .refresh-btn,.logout-btn{ padding:5px 9px; font-size:11px; }
+
+  /* TABS — scroll horizontal fluide, sans barre */
+  .tabs{ padding:0 8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tab-btn{ padding:10px 12px; font-size:12px; }
+
+  /* WIDGETS — 2 colonnes */
+  .widgets,.pl-widgets{ grid-template-columns:1fr 1fr; gap:8px; padding:12px; }
+  .widget{ padding:10px 12px; }
+  .widget-value{ font-size:20px; }
+
+  /* CONTROLS — empilage propre */
+  .controls{ padding:0 12px 12px; gap:10px 14px; }
+  .control-group{ flex-wrap:wrap; }
+  .control-group[style*="margin-left:auto"]{ margin-left:0 !important; width:100%; }
+  .search-input{ width:100% !important; }
+  input[type=range]{ width:120px; }
+
+  /* TABLES → CARTES */
+  .table-wrap{ padding:0 12px 16px; overflow-x:visible; }
+  table{ min-width:0 !important; width:100%; display:block; }
+  thead{ display:none; }
+  tbody{ display:block; }
+  tbody tr{ display:block; background:var(--bg1); border:1px solid var(--border); border-radius:10px; padding:8px 12px; margin-bottom:8px; }
+  tbody tr:hover td{ background:transparent; }
+  tbody td{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:5px 0; border:none; text-align:right; }
+  tbody td::before{ content:attr(data-label); color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; text-align:left; white-space:nowrap; flex-shrink:0; }
+  tbody td:empty{ display:none; }
+  /* 1ʳᵉ cellule = titre de carte */
+  tbody td.m-card-title{ display:flex; justify-content:flex-start; gap:6px; font-size:14px; font-weight:700; padding:0 0 6px; margin-bottom:4px; border-bottom:1px solid var(--border); text-align:left; }
+  tbody td.m-card-title::before{ display:none; }
+  /* cellules action (bouton / lien) pleine largeur */
+  tbody td.m-card-action::before{ display:none; }
+  tbody td.m-card-action{ justify-content:flex-end; padding-top:6px; }
+  tbody td.m-card-action button{ width:100%; padding:9px; font-size:12px; }
+
+  /* SIGNAUX — masquer le bruit (Détecté, BuyRatio, BP%, Décision) */
+  #tab-signals tbody td:nth-child(4),
+  #tab-signals tbody td:nth-child(9),
+  #tab-signals tbody td:nth-child(10),
+  #tab-signals tbody td:nth-child(11){ display:none; }
+}
+</style>
+<script>
+/* Recopie les en-têtes thead comme data-label sur chaque cellule, marque le titre
+   et les cellules d'action. Inoffensif en desktop (attributs invisibles). */
+(function(){
+  function clean(s){ return (s||'').replace(/[\u2191\u2193\u2195\u2194\u21C5]/g,'').replace(/\s+/g,' ').trim(); }
+  var obs;
+  function run(){
+    if(obs) obs.disconnect();
+    try{
+      document.querySelectorAll('table').forEach(function(tbl){
+        var ths = tbl.querySelectorAll('thead th');
+        if(!ths.length) return;
+        var labels = Array.prototype.map.call(ths, function(th){ return clean(th.textContent); });
+        tbl.querySelectorAll('tbody tr').forEach(function(tr){
+          var tds = tr.children, i, td, want;
+          for(i=0;i<tds.length;i++){
+            td = tds[i]; want = labels[i] || '';
+            if(td.getAttribute('data-label') !== want) td.setAttribute('data-label', want);
+            if(i===0){ if(!td.classList.contains('m-card-title')) td.classList.add('m-card-title'); }
+            else if(td.querySelector('button')){ if(!td.classList.contains('m-card-action')) td.classList.add('m-card-action'); }
+          }
+        });
+      });
+    } finally {
+      if(obs) obs.observe(document.body,{childList:true,subtree:true});
+    }
+  }
+  obs = new MutationObserver(run);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
+  setInterval(run, 2000);
+})();
+</script>
+
 </body>
 </html>
