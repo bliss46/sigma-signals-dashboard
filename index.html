@@ -2444,8 +2444,8 @@ window.onload = function() {
 
 <!-- SIGMA-S41-HEARTBEAT : pastilles d'en-tête pilotées par la fraîcheur réelle -->
 <script>(function(){
-  var STALE={D1:30,M1:30,C1:45,'02':240}; // min avant orange ; rouge = 2×
-  var SRCS=['D1','C1','M1','02'];
+var STALE={D1:60,M1:180,C1:30,'02':180}; // min avant orange (cal. p95 gaps) ; rouge = 2x
+var SRCS=['D1','C1','M1','02'];
   function badge(src){var id='src-'+src.toLowerCase(),el=document.getElementById(id);
     if(!el){var ref=document.getElementById('src-02')||document.getElementById('src-c1');
       el=document.createElement('span');el.id=id;el.className='source-badge src-'+src.toLowerCase();el.textContent='● '+src;
