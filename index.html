@@ -2442,5 +2442,30 @@ window.onload = function() {
 })();
 </script>
 
+<!-- SIGMA-S41-HEARTBEAT : pastilles d'en-tête pilotées par la fraîcheur réelle -->
+<script>(function(){
+  var STALE={D1:30,M1:30,C1:45,'02':240}; // min avant orange ; rouge = 2×
+  var SRCS=['D1','C1','M1','02'];
+  function badge(src){var id='src-'+src.toLowerCase(),el=document.getElementById(id);
+    if(!el){var ref=document.getElementById('src-02')||document.getElementById('src-c1');
+      el=document.createElement('span');el.id=id;el.className='source-badge src-'+src.toLowerCase();el.textContent='● '+src;
+      if(ref&&ref.parentNode)ref.parentNode.insertBefore(el,ref.nextSibling);}return el;}
+  function tick(){fetch('/api/n8n?hook=signals-data').then(function(r){return r.json();}).then(function(d){
+    var rows=Array.isArray(d)?d:(d&&d.signals)||[],last={};
+    rows.forEach(function(s){var t=s.timestamp||s.created_at;if(s.source&&t){var ms=+new Date(t);if(!last[s.source]||ms>last[s.source])last[s.source]=ms;}});
+    var worst=0;
+    SRCS.forEach(function(src){var el=badge(src),th=STALE[src]||60;
+      var age=last[src]?Math.round((Date.now()-last[src])/60000):null,lvl,col;
+      if(age==null){lvl=1;col='#9ca3af';}else if(age<=th){lvl=0;col='';}
+      else if(age<=2*th){lvl=1;col='var(--orange)';}else{lvl=2;col='var(--red)';}
+      el.style.color=col;el.style.fontWeight=lvl===2?'700':'';
+      el.title=src+' — '+(age==null?'aucun signal récent':'dernier signal il y a '+age+' min')+(lvl===0?' · frais':lvl===1?' · ralenti':' · ⚠ SILENCE');
+      if(lvl>worst)worst=lvl;});
+    var dot=document.querySelector('.live-dot');
+    if(dot){dot.style.background=worst===0?'var(--green)':worst===1?'var(--orange)':'var(--red)';
+      dot.style.animation=worst===2?'none':'pulse 2s infinite';}
+  }).catch(function(){});}
+  tick();setInterval(tick,60000);
+})();</script>
 </body>
 </html>
