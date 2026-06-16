@@ -265,7 +265,8 @@ tr:hover td { background: var(--bg1); }
 </div>
 
 <div class="table-wrap">
-  <div class="sig-count" id="sig-count"></div>
+  <div id="autobuy-hb" style="margin:2px 0 8px;font:600 12px/1.4 system-ui,sans-serif"></div>
+    <div class="sig-count" id="sig-count"></div>
   <table>
     <thead>
       <tr>
@@ -576,6 +577,22 @@ function loadBotVerdicts(){
         var t = new Date(x.created_at||0).getTime();
         if(!m[k] || t >= m[k]._t){ m[k] = { decision:x.decision, reason:x.reason, when:(x.created_at?new Date(x.created_at).toLocaleString():''), _t:t }; }
       });
+      // F : heartbeat autobuy (derniere decision + etat arme)
+      (function(){
+        var hb = document.getElementById('autobuy-hb'); if(!hb) return;
+        var st = d.settings || {};
+        var armed = String(st.autobuy_enabled)==='true' && String(st.autobuy_dry_run)==='false';
+        var maxT=null; log.forEach(function(x){var t=new Date(x.created_at||0).getTime(); if(t&&(maxT==null||t>maxT))maxT=t;});
+        if(maxT==null){ hb.innerHTML='<span style="color:var(--muted)">\u25CB autobuy : aucune d\u00e9cision</span>'; return; }
+        var base = window._dedupBase || [];
+        var rec = base.filter(function(x){var ts=x.timestamp||x.l1; return ts && (Date.now()-new Date(ts).getTime())<=15*60000;}).length;
+        var min = Math.round((Date.now()-maxT)/60000);
+        var col='#22c55e', note='';
+        if(min>15 && armed && rec>0){ col='#f87171'; note=' \u2014 \u26a0 bot muet malgr\u00e9 '+rec+' signal'+(rec>1?'s':'')+' r\u00e9cents'; }
+        else if(min>15){ col='#fbbf24'; note=' (feed calme)'; }
+        else if(min>8){ col='#fbbf24'; }
+        hb.innerHTML='<span title="Derni\u00e8re d\u00e9cision autobuy_log. Rouge si arm\u00e9 ET muet &gt;15 min alors que des signaux arrivent." style="color:'+col+'">\u25CF autobuy : derni\u00e8re d\u00e9cision il y a '+min+' min \u00b7 '+(armed?'arm\u00e9':'DRY/d\u00e9sarm\u00e9')+note+'</span>';
+      })();
       window.__botVerdict = m;
       if(typeof renderTable==='function') renderTable();
     })
@@ -1323,7 +1340,11 @@ function renderPositions(rows, live) {
     var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
     var tokenHtml = '<a class="dex-link" href="'+dexUrl+'" target="_blank">'+sym+' ↗</a>';
-    var statusHtml = isOpen ? '<span class="liq-green">● ouverte</span>' : '<span class="ch-neu">fermée</span>';
+    var slp = (p.sl_pct!=null ? Number(p.sl_pct) : 30);
+    var zombie = isOpen && pnl!=null && pnl <= -slp;
+    var statusHtml = isOpen
+      ? ('<span class="liq-green">● ouverte</span>' + (zombie ? ' <span style="background:#dc2626;color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;white-space:nowrap" title="P&L sous le stop-loss (-'+slp+'%) mais toujours ouverte — vente possiblement bloquée (rug/illiquidité). Auto-clôture rug_unsellable après N échecs.">⚠ SL franchi</span>' : ''))
+      : '<span class="ch-neu">fermée</span>';
     var targetsHtml = isOpen ? ('<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:25)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>') : '—';
     var exitHtml = isOpen ? '—' : (p.exit_reason || '—');
     var txHtml = p.buy_tx ? '<a class="dex-link" href="https://solscan.io/tx/'+p.buy_tx+'" target="_blank">achat ↗</a>' : '—';
