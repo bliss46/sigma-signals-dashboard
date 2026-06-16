@@ -1265,10 +1265,10 @@ function renderPositions(rows, live) {
   var n = new Date();
   document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
   document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
-  // ── D : P&L cumulé net réalisé + sparkline (trades fermés, ordre chronologique) ──
+  // ── D : P&L cumulé net réalisé + sparkline (50 derniers trades fermés, ordre chrono) — total historique en sous-ligne ──
   (function(){
     var el = document.getElementById('pos-cumul'); if(!el) return;
-    var FIN=0.057, FOUT=0.05;
+    var FIN=0.057, FOUT=0.05, WIN=50;
     function realizedNet(p){
       var em=Number(p.entry_mcap); if(!(em>0)) return null;
       var hadPart=(p.partial_done && p.partial_mcap!=null && p.exit_mcap!=null);
@@ -1282,12 +1282,15 @@ function renderPositions(rows, live) {
     var done = closed.slice().sort(function(a,b){
       return new Date(a.closed_at||a.opened_at||0).getTime() - new Date(b.closed_at||b.opened_at||0).getTime();
     });
+    var allNet=[]; done.forEach(function(p){ var nv=realizedNet(p); if(nv!=null) allNet.push(nv); });
+    if(!allNet.length){ el.innerHTML=''; return; }
+    var totalCum=0; allNet.forEach(function(v){ totalCum+=v; });
+    var recent=allNet.slice(-WIN);
     var cum=0, pts=[], nTr=0, nWin=0;
-    done.forEach(function(p){ var nv=realizedNet(p); if(nv==null) return; cum+=nv; nTr++; if(nv>=0) nWin++; pts.push(cum); });
-    if(!nTr){ el.innerHTML=''; return; }
+    recent.forEach(function(nv){ cum+=nv; nTr++; if(nv>=0) nWin++; pts.push(cum); });
     var spark='';
     if(pts.length>1){
-      var W=170,H=36,pad=3;
+      var W=280,H=70,pad=5;
       var arr=pts.concat([0]); var mn=Math.min.apply(null,arr), mx=Math.max.apply(null,arr); var rng=(mx-mn)||1;
       var step=(W-2*pad)/(pts.length-1);
       var d=pts.map(function(v,i){ var x=pad+i*step; var y=H-pad-((v-mn)/rng)*(H-2*pad); return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
@@ -1295,13 +1298,15 @@ function renderPositions(rows, live) {
       var col=cum>=0?'#2dd4bf':'#f87171';
       spark='<svg width="'+W+'" height="'+H+'" style="vertical-align:middle;margin-left:14px;overflow:visible">'
         +'<line x1="'+pad+'" y1="'+zeroY.toFixed(1)+'" x2="'+(W-pad)+'" y2="'+zeroY.toFixed(1)+'" stroke="#555" stroke-dasharray="2 2" stroke-width="1"/>'
-        +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+        +'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/></svg>';
     }
     var cls=cum>=0?'ch-pos':'ch-neg';
     var winPct=Math.round(nWin/nTr*100);
-    el.innerHTML='<span style="color:var(--muted)">Cumul net réalisé :</span> '
-      +'<b class="'+cls+'" style="font-size:18px">'+(cum>=0?'+':'')+cum.toFixed(4)+' SOL</b> '
-      +'<span style="color:var(--muted)">sur '+nTr+' trade'+(nTr>1?'s':'')+' fermés · '+winPct+'% verts</span>'+spark;
+    var tcls=totalCum>=0?'ch-pos':'ch-neg';
+    el.innerHTML='<span style="color:var(--muted)">Cumul net réalisé ('+nTr+' derniers) :</span> '
+      +'<b class="'+cls+'" style="font-size:26px">'+(cum>=0?'+':'')+cum.toFixed(4)+' SOL</b> '
+      +'<span style="color:var(--muted)">· '+winPct+'% verts</span>'+spark
+      +'<div style="color:var(--muted);font-size:12px;margin-top:4px">total historique : <span class="'+tcls+'">'+(totalCum>=0?'+':'')+totalCum.toFixed(4)+' SOL</span> sur '+allNet.length+' trades</div>';
   })();
   if(!ordered.length){ document.getElementById('pos-tbody').innerHTML = '<tr><td colspan="12" style="color:var(--muted);text-align:center;padding:24px">Aucune position</td></tr>'; return; }
   var html = '';
