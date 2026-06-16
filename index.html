@@ -548,6 +548,40 @@ function decision(noteLive, liq) {
   return '<span class="dec-pass">— Passer</span>';
 }
 
+// ── B (Verdict bot) : map mint -> decision autobuy_log, affichee dans la colonne Decision ──
+window.__botVerdict = window.__botVerdict || {};
+function botVerdictHtml(addr){
+  var v = (window.__botVerdict||{})[addr];
+  if(!v) return '<span class="ch-neu" title="Non evalue par le bot">\u2014</span>';
+  var map = {
+    bought:['#16a34a','#fff','\uD83E\uDD16 achete'],
+    would_buy:['#0ea5e9','#fff','simule'],
+    rug_blocked:['#dc2626','#fff','\uD83D\uDEE1 rug bloque'],
+    reject:['#3a3a3a','#cbd5e1','rejete'],
+    retry_dropped:['#3a3a3a','#cbd5e1','retry abandon'],
+    error:['#f59e0b','#fff','erreur']
+  };
+  var m = map[v.decision] || ['#3a3a3a','#cbd5e1', v.decision||'?'];
+  var tip = (v.reason ? String(v.reason) : (v.decision||'')) + (v.when ? ' \u00b7 '+v.when : '');
+  return '<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="background:'+m[0]+';color:'+m[1]+';padding:1px 7px;border-radius:6px;font-size:11px;white-space:nowrap">'+m[2]+'</span>';
+}
+function loadBotVerdicts(){
+  fetch('/api/autobuy-data',{headers:{Accept:'application/json'},cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var log = (d && Array.isArray(d.log)) ? d.log : [];
+      var m = {};
+      log.forEach(function(x){
+        var k = String(x.mint||'').toLowerCase(); if(!k) return;
+        var t = new Date(x.created_at||0).getTime();
+        if(!m[k] || t >= m[k]._t){ m[k] = { decision:x.decision, reason:x.reason, when:(x.created_at?new Date(x.created_at).toLocaleString():''), _t:t }; }
+      });
+      window.__botVerdict = m;
+      if(typeof renderTable==='function') renderTable();
+    })
+    .catch(function(){});
+}
+
 function dedup(signals) {
   var map = {};
   for (var i = 0; i < signals.length; i++) {
@@ -627,13 +661,9 @@ function renderTable() {
         return brLive != null ? brLive : (s.buy_ratio != null && s.buy_ratio !== '' ? parseFloat(s.buy_ratio) : null);
       })(),
       _decision: (function(){
-        var addr2 = (s.address || '').toLowerCase();
-        var live2 = liveData[addr2] || null;
-        var nl2 = calcNoteLive(s, live2);
-        var liq2 = live2 ? live2.liq : null;
-        if (nl2.note >= 7 && liq2 != null && liq2 >= 30000) return 2;
-        if (nl2.note >= 6 && liq2 != null && liq2 >= 15000) return 1;
-        return 0;
+        var v = (window.__botVerdict||{})[(s.address||'').toLowerCase()];
+        var rk = {bought:5, would_buy:4, rug_blocked:3, reject:2, retry_dropped:2, error:1};
+        return v ? (rk[v.decision]||1) : 0;
       })()
     });
   });
@@ -713,7 +743,7 @@ function renderTable() {
     if (s.name && s.name !== s.symbol) tokenHtml += '<br><span class="token-addr">' + s.name.slice(0,20) + '</span>';
     var dexUrl = s.dex_url || ('https://dexscreener.com/solana/' + (s.address||''));
     var dexHtml = '<a class="dex-link" href="' + dexUrl + '" target="_blank">↗</a>';
-    var decHtml = decision(nl, live ? live.liq : null);
+    var decHtml = botVerdictHtml((s.address||'').toLowerCase());
     var bpRaw = s.buy_pressure_be;
     var bpVal = (bpRaw !== null && bpRaw !== '' && bpRaw !== undefined) ? parseFloat(bpRaw) : null;
     if (bpVal !== null && isNaN(bpVal)) bpVal = null;
@@ -822,6 +852,7 @@ function fetchAndRender() {
 function forceRefresh() {
   // Rafraichit l'onglet actif (toutes les 30s) : evite de marteler les webhooks n8n / DexScreener
   // pour les onglets non visibles. Couvre Signaux, G1, Pre-launch et Positions.
+  loadBotVerdicts();
   if (activeTab === 'g1') loadG1();
   else if (activeTab === 'prelaunch') loadPrelaunch();
   else if (activeTab === 'positions') loadPositions();
@@ -1326,6 +1357,7 @@ setInterval(function(){ if (activeTab === 'prelaunch') loadPrelaunch(); }, 5 * 6
 window.onload = function() {
   loadData(SHEET_ID);
   loadG1();
+  loadBotVerdicts();
 };
 </script>
 <div id="buy-modal" class="buy-overlay" style="display:none">
