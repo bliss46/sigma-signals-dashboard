@@ -25,6 +25,7 @@ body { background: var(--bg0); color: var(--text); font-family: 'SF Mono', 'Fira
 .src-d1 { background: #3b1f6e; color: #c084fc; }
 .src-c1 { background: #1a3a1a; color: #4ade80; }
 .src-02 { background: #1e2d4a; color: #60a5fa; }
+.src-m1 { background: #10302e; color: #2dd4bf; }
 .clock { font-size: 11px; color: var(--muted); }
 .refresh-btn { background: var(--accent); border: none; color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
 .refresh-btn:hover { background: #6d28d9; }
@@ -698,7 +699,7 @@ function renderTable() {
       var liqClass = live.liq < 10000 ? 'liq-red' : live.liq < 20000 ? 'liq-yellow' : 'liq-green';
       liqHtml = '<span class="' + liqClass + '">' + (live.liq >= 1000 ? Math.round(live.liq/1000) + 'k' : Math.round(live.liq)) + '</span>';
     }
-    var srcClass = s.source === 'D1' ? 'src-d1' : s.source === 'C1' ? 'src-c1' : 'src-02';
+    var srcClass = s.source === 'D1' ? 'src-d1' : s.source === 'C1' ? 'src-c1' : s.source === 'M1' ? 'src-m1' : 'src-02';
     var srcHtml = '<span class="src-pill ' + srcClass + '">' + (s.source||'?') + '</span>';
     var brLive = (live && live.buys1h != null && (live.buys1h + live.sells1h) > 0)
       ? Math.round(live.buys1h / (live.buys1h + live.sells1h) * 100) : null;
@@ -1027,7 +1028,7 @@ function renderG1(checks) {
     var signalAt = c.signal_at || c.check_at || '';
     var signalHtml = signalAt ? relTime(signalAt) : '\u2014';
 
-    var srcClass = c.source === 'D1' ? 'src-d1' : c.source === 'C1' ? 'src-c1' : 'src-02';
+    var srcClass = c.source === 'D1' ? 'src-d1' : c.source === 'C1' ? 'src-c1' : c.source === 'M1' ? 'src-m1' : 'src-02';
     var srcHtml = c.source ? '<span class="src-pill ' + srcClass + '">' + c.source + '</span>' : '\u2014';
 
     var dexUrl = c.dex_url || ('https://dexscreener.com/solana/' + (c.address || ''));
@@ -1368,8 +1369,8 @@ window.onload = function() {
     var wrap=document.createElement('div');
     wrap.id='buy-tpsl';
     wrap.style.cssText='margin:12px 0;font-size:13px;text-align:left;';
-    wrap.innerHTML='<label style="display:block;margin:8px 0 2px;">Take Profit : <b id="buy-tp-val">+20%</b></label>'+
-      '<input id="buy-tp" type="range" min="10" max="50" step="1" value="20" style="width:100%">'+
+    wrap.innerHTML='<label style="display:block;margin:8px 0 2px;">Take Profit : <b id="buy-tp-val">+25%</b></label>'+
+      '<input id="buy-tp" type="range" min="10" max="50" step="1" value="25" style="width:100%">'+
       '<label style="display:block;margin:10px 0 2px;">Stop Loss : <b id="buy-sl-val">-30%</b></label>'+
       '<input id="buy-sl" type="range" min="30" max="50" step="1" value="30" style="width:100%">';
     var pin=document.getElementById('buy-pin');
@@ -1456,7 +1457,7 @@ window.onload = function() {
 (function(){
   var PERF_WEBHOOK = '/api/n8n?hook=perf-data';
   function col(v){ if(v==null) return 'var(--muted)'; v=parseFloat(v); return v>0?'var(--green)':(v<0?'var(--red)':'var(--muted)'); }
-  function srcCls(s){ s=(''+s).toLowerCase(); return s==='d1'?'src-d1':(s==='c1'?'src-c1':(s==='02'?'src-02':'')); }
+  function srcCls(s){ s=(''+s).toLowerCase(); return s==='d1'?'src-d1':(s==='c1'?'src-c1':(s==='02'?'src-02':(s==='m1'?'src-m1':''))); }
   function pct(v){ return v==null?'—':((parseFloat(v)>0?'+':'')+v+'%'); }
   function srcBadge(s){ var c=srcCls(s); var st='padding:2px 6px;border-radius:4px;font-size:11px'+(c?'':';background:var(--bg3);color:var(--muted)'); return '<span class="'+c+'" style="'+st+'">'+s+'</span>'; }
 
