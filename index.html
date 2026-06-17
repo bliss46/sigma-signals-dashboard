@@ -1350,7 +1350,7 @@ function renderPositions(rows, live) {
     var statusHtml = isOpen
       ? ('<span class="liq-green">● ouverte</span>' + (zombie ? ' <span style="background:#dc2626;color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;white-space:nowrap" title="P&L sous le stop-loss (-'+slp+'%) mais toujours ouverte — vente possiblement bloquée (rug/illiquidité). Auto-clôture rug_unsellable après N échecs.">⚠ SL franchi</span>' : ''))
       : '<span class="ch-neu">fermée</span>';
-    var targetsHtml = isOpen ? ('<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:25)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>') : '—';
+    var targetsHtml = isOpen ? ('<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:40)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>') : '—';
     var exitHtml = isOpen ? '—' : (p.exit_reason || '—');
     var txHtml = p.buy_tx ? '<a class="dex-link" href="https://solscan.io/tx/'+p.buy_tx+'" target="_blank">achat ↗</a>' : '—';
     if(!isOpen && p.sell_tx) txHtml += ' · <a class="dex-link" href="https://solscan.io/tx/'+p.sell_tx+'" target="_blank">vente ↗</a>';
