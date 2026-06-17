@@ -1262,6 +1262,19 @@ function renderPositions(rows, live) {
   var open = rows.filter(function(p){ return p.status === 'open'; });
   var closed = rows.filter(function(p){ return p.status !== 'open'; });
   var ordered = open.concat(closed);
+  // Garde-fou donnee suspecte : cloture take_profit dont l'exit_mcap implique un P&L tres au-dessus
+  // de la cible => exit_mcap recopie sur peak_mcap (bug d'enregistrement bot, exit=peak). La ligne
+  // est exclue du cumul et signalee dans le tableau. Seuil = max(1,5x tp_pct, 80%).
+  function isBadExit(p){
+    if(!p || p.status==='open') return false;
+    if(p.exit_reason!=='take_profit') return false;
+    var em=Number(p.entry_mcap), xm=(p.exit_mcap==null||p.exit_mcap==='')?null:Number(p.exit_mcap);
+    if(!(em>0)||xm==null||!isFinite(xm)) return false;
+    var pr=(xm-em)/em*100;
+    var tp=(p.tp_pct!=null?Number(p.tp_pct):null);
+    var ceil=Math.max(tp!=null?tp*1.5:0, 80);
+    return pr>ceil;
+  }
   var n = new Date();
   document.getElementById('pos-w-upd').textContent = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+':'+('0'+n.getSeconds()).slice(-2);
   document.getElementById('pos-count').textContent = open.length + ' ouverte(s) · ' + closed.length + ' fermée(s)';
@@ -1271,6 +1284,7 @@ function renderPositions(rows, live) {
     var FIN=0.057, FOUT=0.05, WIN=50;
     function realizedNet(p){
       var em=Number(p.entry_mcap); if(!(em>0)) return null;
+      if(isBadExit(p)) return null;
       var hadPart=(p.partial_done && p.partial_mcap!=null && p.exit_mcap!=null);
       var rmc = hadPart ? (0.5*Number(p.partial_mcap)+0.5*Number(p.exit_mcap)) : (p.exit_mcap!=null?Number(p.exit_mcap):null);
       if(rmc==null) return null;
@@ -1321,6 +1335,7 @@ function renderPositions(rows, live) {
     var hadPartial = (!isOpen && hasPartial && p.exit_mcap != null);
     var realizedMc = hadPartial ? (0.5*Number(p.partial_mcap) + 0.5*Number(p.exit_mcap)) : curMc;
     var pnl = (entryMc>0 && realizedMc!=null) ? ((realizedMc-entryMc)/entryMc*100) : null;
+    var badExit = isBadExit(p);
     var partTip = '';
     if(hadPartial && entryMc>0){
       var legPart = (Number(p.partial_mcap)-entryMc)/entryMc*100;
@@ -1334,13 +1349,17 @@ function renderPositions(rows, live) {
       partTip = ' title="½ vendu à '+(oLegPart>=0?'+':'')+oLegPart.toFixed(1)+'% (réalisé) · runner '+(pnl!=null?((pnl>=0?'+':'')+pnl.toFixed(1)+'%'):'—')+' en cours · total trade ≈ '+(oBlend>=0?'+':'')+oBlend.toFixed(1)+'%"';
     }
     var pnlMark = (hadPartial || (isOpen && hasPartial)) ? ' <span style="opacity:.55;font-size:.85em">½</span>' : '';
-    var pnlHtml = pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>';
+    var pnlHtml = badExit
+      ? '<span class="ch-neu" title="Donnee suspecte : cloture take_profit avec P&L '+(pnl>=0?'+':'')+pnl.toFixed(1)+'% — exit_mcap recopie sur peak_mcap (bug d enregistrement bot). Exclue du cumul.">&#8212; <span style="background:#b45309;color:#fff;padding:0 5px;border-radius:6px;font-size:10px;white-space:nowrap">&#9888; donnee</span></span>'
+      : (pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>');
     // Gain/perte en SOL, NET de friction round-trip (~5,7% entrée + ~5% sortie ≈ 10,7%) — base « wallet réel » (choix s27)
     var solIn = (p.sol_in==null||p.sol_in==='') ? null : Number(p.sol_in);
     var F_IN=0.057, F_OUT=0.05;
     var netSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*((1-F_IN)*(1+pnl/100)*(1-F_OUT)-1)) : null;
     var grossSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*(pnl/100)) : null;
-    var solPnlHtml = (netSol!=null) ? ('<span class="'+(netSol>=0?'ch-pos':'ch-neg')+'" title="Net estimé · mise '+solIn.toFixed(3)+' SOL · friction round-trip ~10,7% (entrée ~5,7% + sortie ~5%)'+(grossSol!=null?(' · brut MC '+(grossSol>=0?'+':'')+grossSol.toFixed(4)+' SOL'):'')+'">'+(netSol>=0?'+':'')+netSol.toFixed(4)+'</span>') : '<span class="ch-neu">—</span>';
+    var solPnlHtml = badExit
+      ? '<span class="ch-neu" title="Gain non fiable (exit_mcap = peak_mcap). Exclu du cumul.">&#8212;</span>'
+      : ((netSol!=null) ? ('<span class="'+(netSol>=0?'ch-pos':'ch-neg')+'" title="Net estimé · mise '+solIn.toFixed(3)+' SOL · friction round-trip ~10,7% (entrée ~5,7% + sortie ~5%)'+(grossSol!=null?(' · brut MC '+(grossSol>=0?'+':'')+grossSol.toFixed(4)+' SOL'):'')+'">'+(netSol>=0?'+':'')+netSol.toFixed(4)+'</span>') : '<span class="ch-neu">—</span>');
     var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
     var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
