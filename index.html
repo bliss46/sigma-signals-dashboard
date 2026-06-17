@@ -1284,6 +1284,10 @@ function renderPositions(rows, live) {
     var FIN=0.057, FOUT=0.05, WIN=50;
     function realizedNet(p){
       var em=Number(p.entry_mcap); if(!(em>0)) return null;
+      // P&L realise EXACT si le produit on-chain de la vente est connu (sol_out, parse du swap) — prime sur tout le reste
+      var siR=(p.sol_in==null||p.sol_in==='')?null:Number(p.sol_in);
+      var soR=(p.sol_out==null||p.sol_out==='')?null:Number(p.sol_out);
+      if(siR!=null&&isFinite(siR)&&siR>0&&soR!=null&&isFinite(soR)) return soR - siR;
       if(isBadExit(p)) return null;
       var hadPart=(p.partial_done && p.partial_mcap!=null && p.exit_mcap!=null);
       var rmc = hadPart ? (0.5*Number(p.partial_mcap)+0.5*Number(p.exit_mcap)) : (p.exit_mcap!=null?Number(p.exit_mcap):null);
@@ -1336,6 +1340,12 @@ function renderPositions(rows, live) {
     var realizedMc = hadPartial ? (0.5*Number(p.partial_mcap) + 0.5*Number(p.exit_mcap)) : curMc;
     var pnl = (entryMc>0 && realizedMc!=null) ? ((realizedMc-entryMc)/entryMc*100) : null;
     var badExit = isBadExit(p);
+    // P&L realise reel : SOL encaisse on-chain (sol_out) vs mise (sol_in) — prime sur l'estimation MC
+    var siReal=(p.sol_in==null||p.sol_in==='')?null:Number(p.sol_in);
+    var soReal=(p.sol_out==null||p.sol_out==='')?null:Number(p.sol_out);
+    var hasReal=(!isOpen && siReal!=null && isFinite(siReal) && siReal>0 && soReal!=null && isFinite(soReal));
+    var realNet=hasReal?(soReal-siReal):null;
+    var realPct=hasReal?((soReal/siReal-1)*100):null;
     var partTip = '';
     if(hadPartial && entryMc>0){
       var legPart = (Number(p.partial_mcap)-entryMc)/entryMc*100;
@@ -1349,17 +1359,21 @@ function renderPositions(rows, live) {
       partTip = ' title="½ vendu à '+(oLegPart>=0?'+':'')+oLegPart.toFixed(1)+'% (réalisé) · runner '+(pnl!=null?((pnl>=0?'+':'')+pnl.toFixed(1)+'%'):'—')+' en cours · total trade ≈ '+(oBlend>=0?'+':'')+oBlend.toFixed(1)+'%"';
     }
     var pnlMark = (hadPartial || (isOpen && hasPartial)) ? ' <span style="opacity:.55;font-size:.85em">½</span>' : '';
-    var pnlHtml = badExit
-      ? '<span class="ch-neu" title="Donnee suspecte : cloture take_profit avec P&L '+(pnl>=0?'+':'')+pnl.toFixed(1)+'% — exit_mcap recopie sur peak_mcap (bug d enregistrement bot). Exclue du cumul.">&#8212; <span style="background:#b45309;color:#fff;padding:0 5px;border-radius:6px;font-size:10px;white-space:nowrap">&#9888; donnee</span></span>'
-      : (pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>');
+    var pnlHtml = hasReal
+      ? '<span class="'+(realPct>=0?'ch-pos':'ch-neg')+'" title="P&L realise reel (on-chain) : '+soReal.toFixed(4)+' SOL encaisses vs mise '+siReal.toFixed(3)+' SOL">'+(realPct>=0?'+':'')+realPct.toFixed(1)+'%</span>'
+      : (badExit
+        ? '<span class="ch-neu" title="Donnee suspecte : cloture take_profit avec P&L '+(pnl>=0?'+':'')+pnl.toFixed(1)+'% — exit_mcap recopie sur peak_mcap (bug d enregistrement bot). Exclue du cumul.">&#8212; <span style="background:#b45309;color:#fff;padding:0 5px;border-radius:6px;font-size:10px;white-space:nowrap">&#9888; donnee</span></span>'
+        : (pnl!=null ? '<span class="'+(pnl>=0?'ch-pos':'ch-neg')+'"'+partTip+'>'+(pnl>=0?'+':'')+pnl.toFixed(1)+'%'+pnlMark+'</span>' : '<span class="ch-neu">—</span>'));
     // Gain/perte en SOL, NET de friction round-trip (~5,7% entrée + ~5% sortie ≈ 10,7%) — base « wallet réel » (choix s27)
     var solIn = (p.sol_in==null||p.sol_in==='') ? null : Number(p.sol_in);
     var F_IN=0.057, F_OUT=0.05;
     var netSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*((1-F_IN)*(1+pnl/100)*(1-F_OUT)-1)) : null;
     var grossSol = (solIn!=null && isFinite(solIn) && pnl!=null) ? (solIn*(pnl/100)) : null;
-    var solPnlHtml = badExit
-      ? '<span class="ch-neu" title="Gain non fiable (exit_mcap = peak_mcap). Exclu du cumul.">&#8212;</span>'
-      : ((netSol!=null) ? ('<span class="'+(netSol>=0?'ch-pos':'ch-neg')+'" title="Net estimé · mise '+solIn.toFixed(3)+' SOL · friction round-trip ~10,7% (entrée ~5,7% + sortie ~5%)'+(grossSol!=null?(' · brut MC '+(grossSol>=0?'+':'')+grossSol.toFixed(4)+' SOL'):'')+'">'+(netSol>=0?'+':'')+netSol.toFixed(4)+'</span>') : '<span class="ch-neu">—</span>');
+    var solPnlHtml = hasReal
+      ? '<span class="'+(realNet>=0?'ch-pos':'ch-neg')+'" title="Net REEL = SOL encaisse - mise (on-chain, sans estimation) · '+soReal.toFixed(4)+' - '+siReal.toFixed(3)+'">'+(realNet>=0?'+':'')+realNet.toFixed(4)+'</span>'
+      : (badExit
+        ? '<span class="ch-neu" title="Gain non fiable (exit_mcap = peak_mcap). Exclu du cumul.">&#8212;</span>'
+        : ((netSol!=null) ? ('<span class="'+(netSol>=0?'ch-pos':'ch-neg')+'" title="Net estimé · mise '+solIn.toFixed(3)+' SOL · friction round-trip ~10,7% (entrée ~5,7% + sortie ~5%)'+(grossSol!=null?(' · brut MC '+(grossSol>=0?'+':'')+grossSol.toFixed(4)+' SOL'):'')+'">'+(netSol>=0?'+':'')+netSol.toFixed(4)+'</span>') : '<span class="ch-neu">—</span>'));
     var sym = String(p.mint||'').slice(0,4)+'…'+String(p.mint||'').slice(-4);
     var nameHtml = p.symbol ? '<b>'+String(p.symbol).replace(/[<>&]/g,'')+'</b>' : '<span class="ch-neu">—</span>';
     var dexUrl = 'https://dexscreener.com/solana/'+(p.mint||'');
