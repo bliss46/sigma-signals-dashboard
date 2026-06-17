@@ -1383,7 +1383,18 @@ function renderPositions(rows, live) {
     var statusHtml = isOpen
       ? ('<span class="liq-green">● ouverte</span>' + (zombie ? ' <span style="background:#dc2626;color:#fff;padding:1px 6px;border-radius:6px;font-size:10px;white-space:nowrap" title="P&L sous le stop-loss (-'+slp+'%) mais toujours ouverte — vente possiblement bloquée (rug/illiquidité). Auto-clôture rug_unsellable après N échecs.">⚠ SL franchi</span>' : ''))
       : '<span class="ch-neu">fermée</span>';
-    var targetsHtml = isOpen ? ('<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:40)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>') : '—';
+    var targetsHtml;
+    if(isOpen){
+      targetsHtml = '<span class="ch-pos">+'+(p.tp_pct!=null?p.tp_pct:40)+'%</span> / <span class="ch-neg">-'+(p.sl_pct!=null?p.sl_pct:30)+'%</span>';
+    } else if(p.tp_pct==null && p.sl_pct==null){
+      // fermee sans cible stockee (trade pre-instrumentation, ex. Pekachu/what)
+      targetsHtml = '<span class="ch-neu">—</span>';
+    } else {
+      // fermee : cibles REELLEMENT configurees pour ce trade (pas de defaut) — utile pour distinguer ere TP25 vs TP40
+      var tpC = (p.tp_pct!=null) ? '<span class="ch-pos">+'+Number(p.tp_pct)+'%</span>' : '<span class="ch-neu">—</span>';
+      var slC = (p.sl_pct!=null) ? '<span class="ch-neg">-'+Number(p.sl_pct)+'%</span>' : '<span class="ch-neu">—</span>';
+      targetsHtml = '<span title="Cibles configurees pour ce trade (TP/SL), pas le resultat">'+tpC+' / '+slC+'</span>';
+    }
     var exitHtml = isOpen ? '—' : (p.exit_reason || '—');
     var txHtml = p.buy_tx ? '<a class="dex-link" href="https://solscan.io/tx/'+p.buy_tx+'" target="_blank">achat ↗</a>' : '—';
     if(!isOpen && p.sell_tx) txHtml += ' · <a class="dex-link" href="https://solscan.io/tx/'+p.sell_tx+'" target="_blank">vente ↗</a>';
