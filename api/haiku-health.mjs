@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     );
     const row = r.rows[0] || {};
     const recent = row.recent || 0;
-    const scored = row.scored || 0;
+    const scored = recent;
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
       recent,
